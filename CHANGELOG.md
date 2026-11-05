@@ -46,6 +46,7 @@ Stitch Log is still in development and has not had a release yet. Everything bel
 - SQL scripts to add and remove test data, and to make a user an admin.
 - VS Code Run and Debug configurations.
 - README with setup instructions, and these release notes.
+- Live site on Netlify at https://stitch-log.netlify.app/, with direct links and page refreshes working on every page.
 
 ### Known limitations
 - Dragging project cards and widgets only works with a mouse. On phones, use the arrows and the status dropdown on the project page.

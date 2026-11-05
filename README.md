@@ -2,6 +2,8 @@
 
 A journal for knitting and crochet projects. Log what you're making, the yarn and needles you used, and photos of your progress, then follow what your friends are working on.
 
+**Live site: [stitch-log.netlify.app](https://stitch-log.netlify.app/)**
+
 Built with React (Vite) and Supabase (Postgres, Auth, Storage). Works on desktop and phones, and can be added to a phone's home screen to open like an app.
 
 ## Features
@@ -61,6 +63,15 @@ In VS Code you can also use **Run and Debug** (Ctrl+Shift+D):
 ### 4. Make yourself an admin (optional)
 
 Sign up in the app, then put your email into [`supabase/make_admin.sql`](supabase/make_admin.sql) and run it in the SQL Editor. Log in again to see the **Admin** tab.
+
+## Deployment
+
+The live site is hosted on [Netlify](https://www.netlify.com/), built from the `main` branch.
+
+- Build command: `npm run build`, publish directory: `dist`
+- Environment variables: set `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` in the Netlify site settings (the `.env` file is not in git)
+- [`public/_redirects`](public/_redirects) sends every URL to the app, so links like `/projects` work when opened directly or refreshed
+- In Supabase under **Authentication > URL Configuration**, set the **Site URL** to `https://stitch-log.netlify.app` and keep `http://localhost:5180` in **Redirect URLs** for local development
 
 ## Test data
 

@@ -15,6 +15,7 @@ You are working on **Stitch Log**. Read this, then read `supabase/schema.sql`, `
 - Supabase URL and publishable/anon key live in `.env` as `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY`. `.env` is in `.gitignore`; `.env.example` is the committed template. Never commit `.env`.
 
 ## Repository and docs
+- Live site: https://stitch-log.netlify.app/ (Netlify, builds `main`; `public/_redirects` handles client-side routes; Supabase env vars set in Netlify).
 - GitHub: https://github.com/kaonashli/stitch-log (branch `main`). Git author for this repo is set locally to `kaonashli` / `kaonashli@users.noreply.github.com` (keeps the user's real email private).
 - `README.md`: what the app is, setup steps, run/debug, test data, project structure. **Update it when setup steps, scripts, ports, or the folder structure change.**
 - `CHANGELOG.md`: release notes (Keep a Changelog style, plain user-facing language). **Every user-visible change goes under `## [Unreleased]`** (Added / Changed / Fixed / Removed) in the same piece of work. Since nothing is released yet, update the existing Unreleased entries in place rather than logging every tweak as a separate change.

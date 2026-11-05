@@ -1,0 +1,3 @@
+# Netlify: send every URL to index.html so React Router can show the right page
+# (without this, refreshing or opening a link like /projects gives a 404)
+/*    /index.html   200
