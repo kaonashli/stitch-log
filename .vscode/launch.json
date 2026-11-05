@@ -1,0 +1,41 @@
+{
+  // Run and Debug configurations (Ctrl+Shift+D, pick one from the dropdown, press F5).
+  // Breakpoints you set in src/*.jsx files will be hit in the browser.
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Debug in Chrome",
+      "type": "chrome",
+      "request": "launch",
+      "url": "http://localhost:5180",
+      "webRoot": "${workspaceFolder}",
+      // Starts the Vite dev server first, and stops it when you stop debugging
+      "preLaunchTask": "dev server",
+      "postDebugTask": "stop dev server"
+    },
+    {
+      "name": "Debug in Edge",
+      "type": "msedge",
+      "request": "launch",
+      "url": "http://localhost:5180",
+      "webRoot": "${workspaceFolder}",
+      "preLaunchTask": "dev server",
+      "postDebugTask": "stop dev server"
+    },
+    {
+      // Use this one if you already started the server yourself (npm run dev)
+      "name": "Debug in Chrome (server already running)",
+      "type": "chrome",
+      "request": "launch",
+      "url": "http://localhost:5180",
+      "webRoot": "${workspaceFolder}"
+    },
+    {
+      // Just runs the app (no breakpoints). Open http://localhost:5180 yourself.
+      "name": "Run dev server only",
+      "type": "node-terminal",
+      "request": "launch",
+      "command": "npm run dev"
+    }
+  ]
+}

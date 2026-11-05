@@ -1,0 +1,37 @@
+{
+  // Tasks used by launch.json. You can also run them from Terminal > Run Task.
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "dev server",
+      "type": "npm",
+      "script": "dev",
+      // The server keeps running, so tell VS Code when it's "ready" by
+      // watching its output for Vite's startup message.
+      "isBackground": true,
+      "problemMatcher": {
+        "owner": "vite",
+        "pattern": { "regexp": "^__never_matches__$" },
+        "background": {
+          "activeBegin": true,
+          "beginsPattern": "VITE",
+          "endsPattern": "ready in"
+        }
+      }
+    },
+    {
+      "label": "stop dev server",
+      "command": "${input:terminateDevServer}",
+      "type": "shell",
+      "problemMatcher": []
+    }
+  ],
+  "inputs": [
+    {
+      "id": "terminateDevServer",
+      "type": "command",
+      "command": "workbench.action.tasks.terminate",
+      "args": "dev server"
+    }
+  ]
+}
