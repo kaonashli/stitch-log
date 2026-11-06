@@ -1,9 +1,11 @@
 // Home page "Shopping list": every material marked "To buy" across your
 // projects, grouped by project (with its icon and status). Tick the box when
 // you've bought something and it moves to that project's stash.
+// The gift button puts an item on your wish list, which friends can see on
+// your profile (Wish list widget).
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { ShoppingCart } from 'lucide-react'
+import { Gift, ShoppingCart } from 'lucide-react'
 import { supabase } from '../lib/supabase.js'
 import { MATERIAL_TYPES, formatMoney, hasCost, materialLineCost, withCost } from '../lib/constants.js'
 import ProjectIcon from './ProjectIcon.jsx'
@@ -18,6 +20,7 @@ function describe(material) {
   const parts = [
     material.brand,
     material.color,
+    material.colors?.length ? material.colors.join(' + ') : null, // color tags
     material.weight,
     material.size,
     material.yardage ? `${material.yardage} yds` : null,
@@ -39,7 +42,7 @@ export default function ShoppingList({ userId }) {
       // "projects!inner" = only materials whose project matches the filter below (my projects)
       const { data, error } = await supabase
         .from('project_materials')
-        .select('id, material_type, brand, color, weight, yardage, size, notes, quantity, sort_order, material_costs(cost), projects!inner(id, title, icon, color, status, user_id)')
+        .select('id, material_type, brand, color, colors, weight, yardage, size, notes, quantity, sort_order, on_wishlist, material_costs(cost), projects!inner(id, title, icon, color, status, user_id)')
         .eq('status', 'to_buy')
         .eq('projects.user_id', userId)
         .is('projects.deleted_at', null) // nothing to buy for deleted projects
@@ -57,6 +60,17 @@ export default function ShoppingList({ userId }) {
     if (error) {
       setError(error.message)
       setItems((all) => [...all, item]) // put it back if saving failed
+    }
+  }
+
+  // Put an item on your wish list (friends see it in your Wish list widget), or take it off
+  async function toggleWishlist(item) {
+    const on_wishlist = !item.on_wishlist
+    setItems((all) => all.map((i) => (i.id === item.id ? { ...i, on_wishlist } : i)))
+    const { error } = await supabase.from('project_materials').update({ on_wishlist }).eq('id', item.id)
+    if (error) {
+      setError(error.message)
+      setItems((all) => all.map((i) => (i.id === item.id ? { ...i, on_wishlist: !on_wishlist } : i)))
     }
   }
 
@@ -93,11 +107,24 @@ export default function ShoppingList({ userId }) {
           <ul className="shopping-items">
             {projectItems.map((item) => (
               <li key={item.id}>
-                <label className="shopping-item">
-                  <input type="checkbox" onChange={() => markBought(item)} aria-label={`Bought ${describe(item)}`} />
-                  <span className="shopping-item-text">{describe(item)}</span>
-                  {hasCost(item) && <span className="muted">{formatMoney(materialLineCost(item))}</span>}
-                </label>
+                <div className="shopping-item-row">
+                  <label className="shopping-item">
+                    <input type="checkbox" onChange={() => markBought(item)} aria-label={`Bought ${describe(item)}`} />
+                    <span className="shopping-item-text">{describe(item)}</span>
+                    {hasCost(item) && <span className="muted">{formatMoney(materialLineCost(item))}</span>}
+                  </label>
+                  {/* Gift button: put it on (or take it off) your wish list, which friends can see */}
+                  <button
+                    type="button"
+                    className={`icon-btn wish-toggle ${item.on_wishlist ? 'wish-toggle-on' : ''}`}
+                    onClick={() => toggleWishlist(item)}
+                    aria-pressed={item.on_wishlist}
+                    aria-label={item.on_wishlist ? `Take ${describe(item)} off your wish list` : `Add ${describe(item)} to your wish list`}
+                    title={item.on_wishlist ? 'On your wish list (friends can see it). Tap to remove.' : 'Add to your wish list (friends can see it)'}
+                  >
+                    <Gift size={16} />
+                  </button>
+                </div>
               </li>
             ))}
           </ul>

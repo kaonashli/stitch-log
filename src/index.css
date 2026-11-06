@@ -263,6 +263,7 @@ ul { margin: 0; padding: 0; list-style: none; }
 .btn-primary { background: var(--primary); color: var(--primary-contrast); }
 .btn-primary:hover:not(:disabled) { background: var(--primary-hover); }
 .btn-ghost { background: transparent; border-color: var(--border); color: var(--text); }
+.btn-ghost.friend-btn-friends { color: var(--success); } /* "Friends": a green check */
 .btn-ghost:hover:not(:disabled) { background: var(--surface-2); }
 .btn-danger { background: transparent; border-color: var(--danger); color: var(--danger); }
 .btn-danger:hover:not(:disabled) { background: var(--danger); color: #fff; }
@@ -560,12 +561,18 @@ input[type='checkbox'] { width: 18px; height: 18px; accent-color: var(--primary)
   .profile-header .avatar { width: 64px !important; height: 64px !important; }
   .profile-actions { flex-basis: 100%; }
   .profile-actions .btn { width: 100%; }
-  /* Your own profile: Settings becomes a small round icon button in the top-right corner */
+  /* Settings (your profile) and the friend buttons (someone else's) become small
+     round icon buttons in the top-right corner of the profile card, so the
+     status bubble stays right under the name */
   .profile-header:has(.profile-actions-corner) { position: relative; }
-  .profile-header:has(.profile-actions-corner) .profile-names { padding-right: 2.5rem; }
-  .profile-actions.profile-actions-corner { position: absolute; top: 0.75rem; right: 0.75rem; flex-basis: auto; }
-  .profile-actions-corner .profile-settings-btn { width: 40px; height: 40px; padding: 0; justify-content: center; border-radius: 50%; }
-  .profile-settings-label { display: none; }
+  .profile-header:has(.profile-actions-corner) .profile-names { padding-right: 2.75rem; }
+  .profile-header:has(.friend-btn-pair) .profile-names { padding-right: 5.75rem; } /* Accept + Decline */
+  .profile-actions.profile-actions-corner { position: absolute; top: 0.75rem; right: 0.75rem; flex-basis: auto; display: flex; flex-direction: column; align-items: flex-end; }
+  .profile-actions-corner .btn.profile-settings-btn,
+  .profile-actions-corner .btn.friend-btn { width: 40px; height: 40px; padding: 0; justify-content: center; border-radius: 50%; }
+  .profile-actions-corner .friend-btn-pair { gap: 0.4rem; flex-wrap: nowrap; }
+  .profile-actions-corner .text-error { max-width: 10rem; text-align: right; }
+  .profile-settings-label, .friend-btn-label { display: none; }
 }
 
 .person-list { display: flex; flex-direction: column; gap: 0.25rem; }
@@ -1553,8 +1560,10 @@ html.app-locked, html.app-locked body { height: 100%; overflow: hidden; }
 .bar-fill { display: block; height: 100%; border-radius: 999px; background: var(--primary); }
 .bar-fill-fiber { background: var(--status-finished); }
 .bar-value { font-size: 0.88rem; white-space: nowrap; text-align: right; }
-.fiber-top { width: 8px; height: 12px; flex-shrink: 0; background: var(--status-paused); clip-path: polygon(0 0, 100% 0, 100% 100%, 50% 75%, 0 100%); }
-@media (max-width: 760px) { .bar-row { grid-template-columns: minmax(0, 6.5rem) minmax(0, 1fr) auto; } }
+@media (max-width: 760px) {
+  .bar-row { grid-template-columns: minmax(0, 8rem) minmax(0, 1fr) auto; gap: 0.5rem; }
+  .bar-value small { display: none; } /* just the number on phones, so the bars have room */
+}
 
 /* Badges */
 .badge-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(84px, 1fr)); gap: 0.5rem; }
@@ -1654,3 +1663,119 @@ html.app-locked, html.app-locked body { height: 100%; overflow: hidden; }
 @media (max-width: 760px) {
   .status-bubble::before { left: 23px; }
 }
+
+/* =====================================================================
+   Milestones
+   ===================================================================== */
+
+/* Small progress bar: "3/7" */
+.ms-progress { display: inline-flex; flex-direction: column; gap: 0.15rem; min-width: 0; }
+.ms-progress-row { display: inline-flex; align-items: center; gap: 0.4rem; }
+.ms-progress-track { width: 64px; height: 6px; border-radius: 999px; background: var(--surface-2); overflow: hidden; flex-shrink: 0; box-shadow: inset 0 0 0 1px var(--border); }
+.ms-progress-fill { display: block; height: 100%; border-radius: 999px; background: var(--status-finished); transition: width 0.3s; }
+.ms-progress-count { font-size: 0.75rem; font-weight: 700; color: var(--muted); font-variant-numeric: tabular-nums; }
+.ms-progress-next { font-size: 0.75rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ms-progress-all { color: var(--status-finished); font-weight: 600; }
+.kanban-card .ms-progress { margin-top: 0.2rem; }
+.kanban-card .ms-progress-track { width: 48px; }
+.active-project-text { display: flex; flex-direction: column; min-width: 0; }
+
+/* The checklist on the project page */
+.ms-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 0.15rem; }
+.ms-item {
+  display: flex; align-items: center; gap: 0.55rem;
+  padding: 0.45rem 0.35rem; border-radius: 10px; border: 1px solid transparent;
+}
+.ms-item-lifted { opacity: 0.4; }
+.ms-item-over { border-color: var(--primary); background: var(--primary-soft); }
+.ms-grip { margin-left: 0; padding: 0.2rem; }
+.ms-check {
+  flex-shrink: 0; width: 24px; height: 24px; padding: 0;
+  display: inline-flex; align-items: center; justify-content: center;
+  border-radius: 7px; border: 2px solid var(--border); background: var(--surface); color: #fff; cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+}
+.ms-check-on { background: var(--status-finished); border-color: var(--status-finished); }
+.ms-check-readonly { cursor: default; }
+@media (hover: hover) { .ms-check:not(.ms-check-readonly):hover { border-color: var(--status-finished); } }
+.ms-text { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.ms-title { overflow-wrap: anywhere; }
+.ms-item-done .ms-title { color: var(--muted); text-decoration: line-through; text-decoration-color: color-mix(in srgb, var(--muted) 60%, transparent); }
+.ms-meta { display: inline-flex; align-items: center; gap: 0.25rem; font-size: 0.75rem; color: var(--muted); }
+.ms-item-done .ms-meta { color: var(--status-finished); }
+.ms-meta-late { color: var(--status-paused); font-weight: 600; }
+.ms-actions { display: flex; align-items: center; flex-shrink: 0; }
+.ms-actions .icon-btn { width: 32px; height: 32px; }
+@media (hover: hover) {
+  .ms-actions { opacity: 0; transition: opacity 0.15s; }
+  .ms-item:hover .ms-actions, .ms-actions:focus-within { opacity: 1; }
+}
+
+/* Editing one milestone */
+.ms-item-editing { padding: 0.35rem; background: var(--surface-2); }
+.ms-edit { display: flex; align-items: center; gap: 0.4rem; width: 100%; flex-wrap: wrap; }
+.ms-edit input:not([type="date"]) { flex: 1; min-width: 10rem; }
+.ms-edit input[type="date"] { width: auto; }
+
+/* Adding one */
+.ms-add { display: flex; align-items: center; gap: 0.4rem; margin-top: 0.25rem; }
+.ms-add input:not([type="date"]) { flex: 1; min-width: 0; }
+.ms-add input[type="date"] { width: auto; max-width: 9.5rem; }
+.ms-add .btn { flex-shrink: 0; }
+.ms-suggestions { display: flex; flex-wrap: wrap; align-items: center; gap: 0.3rem; }
+.ms-suggestions .chip { display: inline-flex; align-items: center; gap: 0.2rem; }
+
+@media (max-width: 760px) {
+  .ms-add { flex-wrap: wrap; }
+  .ms-add input:not([type="date"]) { flex-basis: 100%; }
+  .ms-add input[type="date"] { flex: 1; max-width: none; }
+  .ms-add .btn { margin-left: auto; }
+}
+
+/* Timeline: a little diamond for each milestone done */
+.timeline-milestone {
+  position: absolute; top: 50%; width: 9px; height: 9px; z-index: 1;
+  background: var(--surface); border: 2px solid var(--text);
+  transform: translate(-50%, -50%) rotate(45deg);
+  border-radius: 2px; opacity: 0.85;
+}
+.timeline-milestone-legend { position: static; display: inline-block; transform: rotate(45deg); margin: 0 0.35rem 0 0.15rem; vertical-align: middle; }
+
+/* Wish list: gift buttons + the widget */
+.shopping-item-row { display: flex; align-items: flex-start; gap: 0.25rem; }
+.shopping-item-row .shopping-item { flex: 1; min-width: 0; }
+.wish-toggle { width: 30px; height: 30px; flex-shrink: 0; color: var(--muted); }
+.wish-toggle-on { color: var(--primary); background: var(--primary-soft); }
+.material-buy-actions { margin-left: auto; align-self: center; gap: 0.25rem; flex-wrap: nowrap; }
+.material-buy-actions .material-bought { margin-left: 0; }
+.material-cost + .material-buy-actions { margin-left: 0; }
+.wish-group { display: flex; flex-direction: column; gap: 0.3rem; }
+.wish-items { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 0.35rem; }
+.wish-item { display: flex; align-items: flex-start; gap: 0.5rem; font-size: 0.92rem; }
+.wish-item-icon { color: var(--primary); flex-shrink: 0; margin-top: 0.15rem; }
+.wish-item-notes { display: block; font-size: 0.8rem; }
+
+/* Timeline: choose projects panel */
+.timeline-settings .kanban-settings-row label { min-width: 0; }
+.timeline-settings .kanban-settings-row label span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.timeline-mode { display: flex; flex-direction: column; gap: 0.3rem; }
+.timeline-mode label { display: flex; align-items: center; gap: 0.5rem; cursor: pointer; }
+
+/* Favorite fibers: little icon beside each fiber */
+.fiber-icon { display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; width: 24px; height: 24px; border-radius: 7px; color: var(--status-finished); background: color-mix(in srgb, var(--status-finished) 14%, var(--surface)); }
+
+/* Favorite fibers and colors: every row lines up */
+.widget-subheading { margin: 0; font-size: 0.78rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted); }
+.fav-slot { display: inline-flex; align-items: center; justify-content: center; width: 14px; flex-shrink: 0; color: var(--status-paused); }
+.bar-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bar-fill-color { background: var(--primary); }
+.color-icon { background: var(--surface-2); }
+
+/* Color swatches */
+.swatch {
+  display: inline-block; flex-shrink: 0; border-radius: 50%;
+  background: var(--swatch);
+  box-shadow: inset 0 0 0 1px rgb(0 0 0 / 18%);
+}
+.color-chip { display: inline-flex; align-items: center; gap: 0.3rem; }
+.color-tag { display: inline-flex; align-items: center; gap: 0.25rem; margin-right: 0.5rem; }

@@ -20,12 +20,14 @@ import FocusWidget from './FocusWidget.jsx'
 import MadeForWidget from './MadeForWidget.jsx'
 import FibersWidget from './FibersWidget.jsx'
 import BadgesWidget from './BadgesWidget.jsx'
+import WishlistWidget from './WishlistWidget.jsx'
 import { requestBadgeCheck } from '../../lib/badges.js'
 
 // Widgets that have a settings panel (opened with the sliders button)
 const WIDGETS_WITH_SETTINGS = {
   kanban: 'Choose columns',
   gallery: 'Choose projects',
+  calendar: 'Choose projects',
 }
 
 // Load a user's projects plus everything the widgets need: status history
@@ -39,7 +41,8 @@ async function loadProjects(userId) {
       craft_types(name),
       project_status_history(status, changed_at),
       project_photos(storage_path, is_cover),
-      project_materials(material_type, fibers),
+      project_materials(material_type, fibers, colors),
+      project_milestones(id, title, done_at, due_date, sort_order, created_at),
       project_recipients(user_id, name, person:profiles!project_recipients_user_id_fkey(id, username, display_name, avatar_path))
     `)
     .eq('user_id', userId)
@@ -261,6 +264,7 @@ export default function WidgetBoard({ userId, editable, focusProjectId = null })
               projects={projects}
               settings={widget.settings}
               editable={editable}
+              customizing={settingsOpenFor === widget.id}
               onSettingsChange={(settings) => updateSettings(widget.id, settings)}
             />
           )}
@@ -277,6 +281,7 @@ export default function WidgetBoard({ userId, editable, focusProjectId = null })
             <FocusWidget projects={projects} focusId={focusProjectId} editable={editable} />
           )}
           {widget.widget_type === 'badges' && <BadgesWidget userId={userId} editable={editable} />}
+          {widget.widget_type === 'wishlist' && <WishlistWidget userId={userId} editable={editable} />}
           {widget.widget_type === 'made_for' && <MadeForWidget projects={projects} ownerId={userId} />}
           {widget.widget_type === 'fibers' && <FibersWidget projects={projects} />}
         </div>

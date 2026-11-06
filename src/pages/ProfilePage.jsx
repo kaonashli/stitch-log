@@ -92,9 +92,9 @@ export default function ProfilePage() {
             </span>
           )}
         </div>
-        {/* On phones your Settings button sits in the top-right corner (icon only),
-            so your status bubble stays right under your name */}
-        <div className={`profile-actions ${ownView ? 'profile-actions-corner' : ''}`}>
+        {/* On phones these buttons (your Settings, or Add friend / Friends / Accept) sit in the
+            top-right corner as round icons, so the status bubble stays right under the name */}
+        <div className="profile-actions profile-actions-corner">
           {ownView && (
             <Link to="/settings" className="btn btn-ghost profile-settings-btn" aria-label="Settings" title="Settings">
               <Settings size={16} /> <span className="profile-settings-label">Settings</span>

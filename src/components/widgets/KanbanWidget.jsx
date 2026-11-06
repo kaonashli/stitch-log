@@ -15,6 +15,7 @@ import { ArrowLeft, ArrowRight, ChevronRight } from 'lucide-react'
 import { STATUSES, statusLabel } from '../../lib/constants.js'
 import { useTouchDrag } from '../../lib/useTouchDrag.js'
 import ProjectIcon from '../ProjectIcon.jsx'
+import MilestoneProgress from '../MilestoneProgress.jsx'
 
 // Our own drag data type, so a card drag can't be confused with other drags
 const PROJECT_DRAG_TYPE = 'application/x-stitchlog-project'
@@ -159,6 +160,8 @@ export default function KanbanWidget({ projects, canDrag, onStatusChange, settin
                     <span className="kanban-card-text">
                       <strong>{project.title}</strong>
                       <small className="muted">{project.craft_types?.name}</small>
+                      {/* how many milestones are done (if it has any) */}
+                      <MilestoneProgress milestones={project.project_milestones} />
                     </span>
                   </Link>
                 ))}

@@ -17,6 +17,7 @@ import {
 } from '../lib/constants.js'
 import { useTouchDrag } from '../lib/useTouchDrag.js'
 import FiberPicker from './FiberPicker.jsx'
+import ColorTagPicker from './ColorTagPicker.jsx'
 
 const MATERIAL_DRAG_TYPE = 'application/x-stitchlog-material'
 
@@ -24,7 +25,7 @@ const MATERIAL_DRAG_TYPE = 'application/x-stitchlog-material'
 export function newMaterial(type, status = 'owned') {
   return {
     key: crypto.randomUUID(), material_type: type, status, quantity: 1, unsure: false, cost: '',
-    brand: '', color: '', weight: '', yardage: '', gauge: '', size: '', notes: '', fibers: [],
+    brand: '', color: '', weight: '', yardage: '', gauge: '', size: '', notes: '', fibers: [], colors: [], on_wishlist: false,
   }
 }
 
@@ -159,6 +160,16 @@ export default function MaterialsEditor({ materials, onChange }) {
                         )
                       }
 
+                      // Colors: pick one or more color tags (several = variegated)
+                      if (field === 'colors') {
+                        return (
+                          <div key={field} className="field field-wide">
+                            <span>{info.label}</span>
+                            <ColorTagPicker value={material.colors ?? []} onChange={(list) => updateMaterial(material.key, 'colors', list)} />
+                          </div>
+                        )
+                      }
+
                       // Amount: a number, or tick "Unsure"
                       if (field === 'quantity') {
                         return (
@@ -270,11 +281,16 @@ export function materialsToRows(materials, projectId) {
       material_type: m.material_type,
       status: m.status,
       sort_order: counters[m.status] - 1,
+      on_wishlist: Boolean(m.on_wishlist),
     }
     for (const field of MATERIAL_TYPES[m.material_type].fields) {
       if (field === 'cost') continue // saved separately, in the private material_costs table
       if (field === 'fibers') {
         row.fibers = m.fibers?.length ? m.fibers : null
+        continue
+      }
+      if (field === 'colors') {
+        row.colors = m.colors?.length ? m.colors : null
         continue
       }
       const value = String(m[field] ?? '').trim()

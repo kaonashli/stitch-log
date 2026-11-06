@@ -14,6 +14,43 @@ export const IN_DEVELOPMENT = true
 
 export const RELEASES = [
   {
+    version: null, // not released yet
+    date: null,
+    title: 'Coming next',
+    intro: 'Already working in the app, and part of the next version.',
+    sections: [
+      {
+        heading: 'Milestones',
+        items: [
+          'Break a project into milestones: your own steps and plans, like "Swatch", "Finish the back", or "Blocking". Add them on the project page, give them a target date if you like, and tick them off as you go.',
+          'Drag milestones into the order you want. Quick-add buttons suggest common steps.',
+          'See how far along you are: a little progress bar shows on your project board, on your home page, and on your focus project, with your next milestone. Finished milestones show up as small diamonds on your project timeline.',
+        ],
+      },
+      {
+        heading: 'Wish list',
+        items: [
+          'Tap the gift button on something in your Shopping list to put it on your wish list. Add the Wish list widget to your profile, and your friends will know just what to get you.',
+          'Prices stay private, and things you buy leave the wish list by themselves.',
+        ],
+      },
+      {
+        heading: 'Your profile',
+        items: [
+          'Choose which projects your project timeline shows, and in what order.',
+          'Favorite fibers now has a little picture beside each fiber: a sheep for wool, a cocoon for silk, a cotton boll for cotton, and many more.',
+          'Tag the colors of your yarn, string, and buttons (pick several for variegated yarn). Your favorite colors now show up next to your favorite fibers on your profile.',
+        ],
+      },
+      {
+        heading: 'On your phone',
+        items: [
+          "On a friend's profile, the friend button (Add friend, Friends, Accept) is now a little round button in the top-right corner, so their status sits right under their name.",
+        ],
+      },
+    ],
+  },
+  {
     version: '0.2.0',
     date: '2026-11-06',
     title: 'Badges, widgets, and lots more',

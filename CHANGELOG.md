@@ -4,6 +4,18 @@ All notable changes to Stitch Log are listed here, newest first.
 
 ## [Unreleased]
 
+### Added
+- Milestones: your own steps and plans inside a project, like tasks under a user story. On the project page, add milestones (with an optional target date), tick them off (the day is remembered), edit, delete, and drag to reorder; everything saves right away. Quick-add suggestions (Swatch, Cast on, Weave in ends, Blocking...). Missed target dates show in amber. Friends who can see the project see its milestones.
+- Milestone progress ("3/7" bar) on project board cards, the status page, the home page's in-progress list, and the Focus project widget (with the next milestone). The project timeline shows a small diamond on the day each milestone was done.
+- Color tags: yarn, string, and buttons have a Colors picker with swatches (27 colors, including Multicolor; pick several for variegated). The old Color box becomes "Color name" for the brand's colorway. Existing color names were tagged automatically where a color word was found (e.g. "Dark Grey Heather" -> Grey). Color tags also show on the project page, the shopping list, and the wish list.
+- The Favorite fibers widget is now "Favorite fibers and colors", with a Colors section (swatch beside each color). Rows line up: the favorite gets a star in a fixed slot. On phones only the number is shown, so the bars have room.
+- Favorite fibers widget: a little icon beside each fiber, matching where it comes from (sheep for wool breeds, alpaca, goat for mohair and cashmere, yak, rabbit for angora, cocoon for silk, cotton boll, flax flower for linen, bamboo, leaf for other plants, trees for regenerated fibers, flask for synthetics, sparkles for metallic, recycle arrows for recycled fibers).
+- Project timeline: choose which projects it shows and in what order (sliders button): "All projects" (new ones appear by themselves, oldest start first) or "Only the ones I pick", with tick boxes and up/down arrows.
+- Wish list: a gift button on each Shopping list item (and on "To buy" materials on the project page) puts it on your wish list. Friends see it in the new Wish list profile widget, so they know what to get you. Costs are never shown; items from a private project don't show its name. Bought items leave the wish list by themselves.
+
+### Changed
+- On phones, the friend buttons on someone else's profile (Add friend, Friends, Cancel request, Accept / Decline) are round icon buttons in the top-right corner of the profile card, like Settings on your own profile, so their status sits right under their name. "Friends" shows a green check; a sent request shows a clock.
+
 ## [0.2.0] - 2026-11-06
 
 A big update: badges, new profile widgets, replies, wrap-up questions, and much more. Still a beta.

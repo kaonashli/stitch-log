@@ -15,6 +15,8 @@ import {
 } from '../lib/projectExtras.js'
 import TaggedText from '../components/TaggedText.jsx'
 import { requestBadgeCheck } from '../lib/badges.js'
+import MilestoneList from '../components/MilestoneList.jsx'
+import { Swatch } from '../components/ColorTagPicker.jsx'
 import {
   MATERIAL_FIELDS, MATERIAL_SECTIONS, MATERIAL_TYPES, STATUSES, formatMoney, hasCost, materialLineCost, withCost,
 } from '../lib/constants.js'
@@ -169,6 +171,17 @@ It will be moved to Recently deleted (at the bottom of My projects) ` +
   const toBuyCost = materials.filter((m) => m.status === 'to_buy').reduce((sum, m) => sum + materialLineCost(m), 0)
   const anyCosts = materials.some(hasCost)
 
+  // Put a "to buy" material on your wish list (or take it off)
+  async function toggleWishlist(material) {
+    const on_wishlist = !material.on_wishlist
+    const { error } = await supabase.from('project_materials').update({ on_wishlist }).eq('id', material.id)
+    if (error) return setError(error.message)
+    setProject({
+      ...project,
+      project_materials: project.project_materials.map((m) => (m.id === material.id ? { ...m, on_wishlist } : m)),
+    })
+  }
+
   // Mark a "to buy" material as bought (moves it to the stash)
   async function markBought(material) {
     const { error } = await supabase.from('project_materials').update({ status: 'owned' }).eq('id', material.id)
@@ -298,6 +311,9 @@ It will be moved to Recently deleted (at the bottom of My projects) ` +
         </div>
       )}
 
+      {/* Milestones: the owner's own steps and plans for this project */}
+      <MilestoneList projectId={project.id} isOwner={isOwner && !project.deleted_at} />
+
       {/* Wrap-up answers (finished / frogged projects) */}
       {hasWrapUp(project.status) && shownAnswers.length > 0 && (
         <div className="card stack-sm">
@@ -368,7 +384,10 @@ It will be moved to Recently deleted (at the bottom of My projects) ` +
                         .map((field) => (
                           <span key={field}>
                             <span className="muted">{MATERIAL_FIELDS[field].label}:</span>{' '}
-                            {Array.isArray(m[field]) ? m[field].join(', ') : m[field]}
+                            {field === 'colors'
+                              // color tags with their little swatches
+                              ? m.colors.map((c) => <span key={c} className="color-tag"><Swatch name={c} size={11} /> {c}</span>)
+                              : Array.isArray(m[field]) ? m[field].join(', ') : m[field]}
                           </span>
                         ))}
                     </span>
@@ -378,9 +397,21 @@ It will be moved to Recently deleted (at the bottom of My projects) ` +
                       </span>
                     )}
                     {isOwner && m.status === 'to_buy' && (
-                      <button className="btn btn-xs btn-ghost material-bought" onClick={() => markBought(m)}>
-                        <Check size={12} /> Bought
-                      </button>
+                      <span className="row material-buy-actions">
+                        {/* Gift: on your wish list, which friends can see */}
+                        <button
+                          className={`icon-btn wish-toggle ${m.on_wishlist ? 'wish-toggle-on' : ''}`}
+                          onClick={() => toggleWishlist(m)}
+                          aria-pressed={m.on_wishlist}
+                          aria-label={m.on_wishlist ? 'Take off your wish list' : 'Add to your wish list'}
+                          title={m.on_wishlist ? 'On your wish list (friends can see it). Tap to remove.' : 'Add to your wish list (friends can see it)'}
+                        >
+                          <Gift size={15} />
+                        </button>
+                        <button className="btn btn-xs btn-ghost material-bought" onClick={() => markBought(m)}>
+                          <Check size={12} /> Bought
+                        </button>
+                      </span>
                     )}
                   </li>
                 ))}

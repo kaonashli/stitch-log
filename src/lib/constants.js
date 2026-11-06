@@ -26,13 +26,16 @@ export const MATERIAL_FIELDS = {
   // Price for ONE; the line's cost is cost x amount. Optional.
   cost: { label: 'Cost each', type: 'number', min: 0, step: 0.01, placeholder: '0.00' },
   brand: { label: 'Brand' },
-  color: { label: 'Color' },
+  // The brand's name for the color (free text); the color TAGS are in colors
+  color: { label: 'Color name', placeholder: 'e.g. Charcoal Heather' },
   weight: { label: 'Weight', placeholder: 'e.g. DK, Worsted' },
   yardage: { label: 'Yardage', type: 'number' },
   gauge: { label: 'Gauge', placeholder: 'e.g. 22 sts x 30 rows = 10 cm' },
   size: { label: 'Size', placeholder: 'e.g. 4.0 mm, US 6' },
   // Picked from FIBERS (several for a blend). Stored as project_materials.fibers (a list).
   fibers: { label: 'Fiber' },
+  // Picked from COLOR_TAGS (several for variegated). Stored as project_materials.colors (a list).
+  colors: { label: 'Colors' },
   notes: { label: 'Notes' },
 }
 
@@ -40,11 +43,11 @@ export const MATERIAL_FIELDS = {
 // on project_materials.material_type.
 // Every type starts with Amount and ends with Cost each + Notes.
 export const MATERIAL_TYPES = {
-  yarn: { label: 'Yarn', fields: ['quantity', 'brand', 'color', 'weight', 'yardage', 'gauge', 'fibers', 'cost', 'notes'] },
+  yarn: { label: 'Yarn', fields: ['quantity', 'brand', 'colors', 'color', 'weight', 'yardage', 'gauge', 'fibers', 'cost', 'notes'] },
   needle: { label: 'Needle / hook', fields: ['quantity', 'size', 'cost', 'notes'] },
-  string: { label: 'String', fields: ['quantity', 'fibers', 'cost', 'notes'] },
+  string: { label: 'String', fields: ['quantity', 'colors', 'fibers', 'cost', 'notes'] },
   stuffing: { label: 'Stuffing', fields: ['quantity', 'cost', 'notes'] },
-  buttons: { label: 'Buttons', fields: ['quantity', 'color', 'cost', 'notes'] },
+  buttons: { label: 'Buttons', fields: ['quantity', 'colors', 'color', 'cost', 'notes'] },
 }
 
 // Material costs are private, so they live in their own table (material_costs).
@@ -110,7 +113,8 @@ export const WIDGET_TYPES = {
   gallery: { label: 'Project gallery', description: 'Your favorite projects in a photo grid' },
   focus: { label: 'Focus project', description: 'Show off the project you starred' },
   made_for: { label: 'Made for', description: 'How many projects you made for each person' },
-  fibers: { label: 'Favorite fibers', description: 'The fibers you use the most' },
+  fibers: { label: 'Favorite fibers and colors', description: 'The fibers and colors you use the most' },
+  wishlist: { label: 'Wish list', description: 'Things you need, so friends know what to get you' },
 }
 
 // Admin "view as" modes (see AuthContext)
@@ -164,6 +168,45 @@ export const FIBER_GROUPS = [
 
 // Every fiber in one list
 export const FIBERS = FIBER_GROUPS.flatMap((g) => g.fibers)
+
+// Color tags for yarn, string, and buttons (pick several for variegated yarn).
+// swatch = the color of the little circle shown with it. Must match the list
+// in supabase/migrations/022 (used to tag old color names automatically).
+// Only ADD names here; don't rename ones people may have picked.
+export const COLOR_TAGS = [
+  { name: 'White', swatch: '#ffffff' },
+  { name: 'Cream', swatch: '#f3e9d2' },
+  { name: 'Beige', swatch: '#d8c3a0' },
+  { name: 'Brown', swatch: '#8a5a3b' },
+  { name: 'Grey', swatch: '#9a9a9a' },
+  { name: 'Charcoal', swatch: '#444748' },
+  { name: 'Black', swatch: '#1f1f1f' },
+  { name: 'Red', swatch: '#d0393b' },
+  { name: 'Burgundy', swatch: '#7d1f35' },
+  { name: 'Pink', swatch: '#f39ab8' },
+  { name: 'Coral', swatch: '#f47d63' },
+  { name: 'Orange', swatch: '#f08a24' },
+  { name: 'Rust', swatch: '#b24e24' },
+  { name: 'Mustard', swatch: '#d6a628' },
+  { name: 'Yellow', swatch: '#f5d63d' },
+  { name: 'Gold', swatch: '#c9a227' },
+  { name: 'Olive', swatch: '#7c7c2e' },
+  { name: 'Green', swatch: '#3e9b55' },
+  { name: 'Mint', swatch: '#9fdcc0' },
+  { name: 'Teal', swatch: '#1f8a8a' },
+  { name: 'Turquoise', swatch: '#3cc4c6' },
+  { name: 'Blue', swatch: '#3a72c4' },
+  { name: 'Navy', swatch: '#1f2f5a' },
+  { name: 'Purple', swatch: '#7b4ab0' },
+  { name: 'Lavender', swatch: '#b9a2e0' },
+  { name: 'Silver', swatch: '#c4c8cc' },
+  { name: 'Multicolor', swatch: 'conic-gradient(#d0393b, #f5d63d, #3e9b55, #3a72c4, #7b4ab0, #d0393b)' },
+]
+
+// The swatch for a color tag (a light grey for anything unknown)
+export function colorSwatch(name) {
+  return COLOR_TAGS.find((c) => c.name === name)?.swatch ?? '#dddddd'
+}
 
 // "Who it's for" written as a name: these mean yourself
 export function isSelfName(name) {

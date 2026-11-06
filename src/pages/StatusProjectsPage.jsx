@@ -16,6 +16,7 @@ import { DELETE_AFTER_DAYS, moveToTrash } from '../lib/trash.js'
 import { requestBadgeCheck } from '../lib/badges.js'
 import { useAuth } from '../context/AuthContext.jsx'
 import ProjectIcon from '../components/ProjectIcon.jsx'
+import MilestoneProgress from '../components/MilestoneProgress.jsx'
 import Spinner from '../components/Spinner.jsx'
 import ErrorMessage from '../components/ErrorMessage.jsx'
 
@@ -37,7 +38,7 @@ export default function StatusProjectsPage() {
       setLoading(true)
       const { data, error } = await supabase
         .from('projects')
-        .select('id, title, status, start_date, finish_date, icon, color, craft_types(name), project_photos(storage_path, is_cover)')
+        .select('id, title, status, start_date, finish_date, icon, color, craft_types(name), project_photos(storage_path, is_cover), project_milestones(id, title, done_at, sort_order, created_at)')
         .eq('user_id', user.id)
         .eq('status', status)
         .is('deleted_at', null)
@@ -129,6 +130,7 @@ export default function StatusProjectsPage() {
                   {p.start_date && ` · ${startDateLabel(p.status)} ${formatDate(p.start_date)}`}
                   {p.finish_date && ` · Finished ${formatDate(p.finish_date)}`}
                 </small>
+                <MilestoneProgress milestones={p.project_milestones} showNext />
               </span>
             </Link>
             <div className="status-item-actions">

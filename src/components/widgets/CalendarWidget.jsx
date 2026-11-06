@@ -7,6 +7,7 @@
 // (The widget type is still called 'calendar' in the database; it used to be
 // a dot calendar.)
 import { Link } from 'react-router-dom'
+import { ArrowDown, ArrowUp } from 'lucide-react'
 import { STATUSES, statusLabel } from '../../lib/constants.js'
 import { daysInclusive, formatDate, parseLocalDate, toLocalDateString, todayLocal } from '../../lib/dates.js'
 import ProjectIcon from '../ProjectIcon.jsx'
@@ -104,7 +105,89 @@ function segmentsFor(project, rangeStart, today) {
   return segments
 }
 
-export default function CalendarWidget({ projects, settings, editable, onSettingsChange }) {
+// The "Choose projects" panel (sliders button in the widget header).
+// settings.projectIds: missing = all projects (sorted by start date, new ones
+// appear by themselves); a list = only those projects, in that order.
+function TimelineSettings({ projects, settings, onSettingsChange }) {
+  const picked = Array.isArray(settings?.projectIds)
+    ? settings.projectIds.map((id) => projects.find((p) => p.id === id)).filter(Boolean)
+    : null
+  const others = picked ? projects.filter((p) => !picked.some((x) => x.id === p.id)) : []
+
+  function save(list) {
+    onSettingsChange({ ...settings, projectIds: list.map((p) => p.id) })
+  }
+
+  function move(index, direction) {
+    const target = index + direction
+    if (target < 0 || target >= picked.length) return
+    const next = [...picked]
+    ;[next[index], next[target]] = [next[target], next[index]]
+    save(next)
+  }
+
+  return (
+    <div className="kanban-settings timeline-settings">
+      <div className="timeline-mode" role="radiogroup" aria-label="Which projects to show">
+        <label>
+          <input
+            type="radio"
+            name="timeline-mode"
+            checked={!picked}
+            onChange={() => {
+              const rest = { ...settings }
+              delete rest.projectIds
+              onSettingsChange(rest)
+            }}
+          />
+          All projects (new ones show up by themselves)
+        </label>
+        <label>
+          <input
+            type="radio"
+            name="timeline-mode"
+            checked={Boolean(picked)}
+            // start from what's shown now, oldest start first
+            onChange={() => save([...projects].filter((p) => p.start_date).sort((a, b) => a.start_date.localeCompare(b.start_date)))}
+          />
+          Only the ones I pick, in my order
+        </label>
+      </div>
+
+      {picked && (
+        <>
+          <small className="muted">Shown, top to bottom (untick to hide, arrows to reorder)</small>
+          {picked.length === 0 && <small className="muted">None yet. Tick projects below.</small>}
+          {picked.map((p, index) => (
+            <div key={p.id} className="kanban-settings-row">
+              <label>
+                <input type="checkbox" checked onChange={() => save(picked.filter((x) => x.id !== p.id))} />
+                <span>{p.title}</span>
+              </label>
+              <button type="button" className="icon-btn" onClick={() => move(index, -1)} disabled={index === 0} aria-label={`Move ${p.title} up`}>
+                <ArrowUp size={15} />
+              </button>
+              <button type="button" className="icon-btn" onClick={() => move(index, 1)} disabled={index === picked.length - 1} aria-label={`Move ${p.title} down`}>
+                <ArrowDown size={15} />
+              </button>
+            </div>
+          ))}
+          {others.length > 0 && <small className="muted">Hidden</small>}
+          {others.map((p) => (
+            <div key={p.id} className="kanban-settings-row">
+              <label>
+                <input type="checkbox" checked={false} onChange={() => save([...picked, p])} />
+                <span className="muted">{p.title}{!p.start_date && ' (no start date yet)'}</span>
+              </label>
+            </div>
+          ))}
+        </>
+      )}
+    </div>
+  )
+}
+
+export default function CalendarWidget({ projects, settings, editable, onSettingsChange, customizing = false }) {
   const today = todayLocal()
   const range = RANGES.find((r) => r.value === settings?.range) ?? RANGES[1] // 6 months by default
 
@@ -130,15 +213,22 @@ export default function CalendarWidget({ projects, settings, editable, onSetting
     months.push({ day: toLocalDateString(d), label, labelled })
   }
 
-  // Projects that overlap the visible range, oldest start first.
-  // (Ideas without a planned start date have nothing to show yet.)
-  const rows = projects
+  // Which projects, in which order: the ones you picked (in your order), or
+  // all of them, oldest start first. Either way only projects that overlap
+  // the visible range get a row (ideas without a start date have nothing to show).
+  const picked = Array.isArray(settings?.projectIds)
+  const chosen = picked
+    ? settings.projectIds.map((id) => projects.find((p) => p.id === id)).filter(Boolean)
+    : [...projects].filter((p) => p.start_date).sort((a, b) => a.start_date.localeCompare(b.start_date))
+  const rows = chosen
     .filter((p) => p.start_date && p.start_date <= today && lastDay(p, today) >= rangeStart)
-    .sort((a, b) => a.start_date.localeCompare(b.start_date))
     .map((p) => ({ project: p, segments: segmentsFor(p, rangeStart, today), end: lastDay(p, today) }))
 
   return (
     <div className="stack-sm">
+      {customizing && editable && (
+        <TimelineSettings projects={projects} settings={settings} onSettingsChange={onSettingsChange} />
+      )}
       <div className="row-between wrap">
         <small className="muted">From the day each project started to the day it finished.</small>
         {editable ? (
@@ -156,7 +246,7 @@ export default function CalendarWidget({ projects, settings, editable, onSetting
       </div>
 
       {rows.length === 0 ? (
-        <p className="muted">No projects in this time range.</p>
+        <p className="muted">{picked ? 'None of the projects you picked are in this time range.' : 'No projects in this time range.'}</p>
       ) : (
         <div className="timeline">
           {/* Month labels + faint lines down the timeline */}
@@ -200,6 +290,19 @@ export default function CalendarWidget({ projects, settings, editable, onSetting
                       title={`${statusLabel(s.status)}: ${formatDate(s.from)} to ${formatDate(s.to)}`}
                     />
                   ))}
+                  {/* A little diamond for each milestone done inside the visible range */}
+                  {(project.project_milestones ?? [])
+                    .filter((m) => m.done_at)
+                    .map((m) => ({ ...m, day: toLocalDateString(new Date(m.done_at)) }))
+                    .filter((m) => m.day >= rangeStart && m.day >= project.start_date && m.day <= end)
+                    .map((m) => (
+                      <span
+                        key={m.id}
+                        className="timeline-milestone"
+                        style={{ left: `${position(m.day)}%` }}
+                        title={`Milestone: ${m.title} (${formatDate(m.day)})`}
+                      />
+                    ))}
                   {/* Start knot, and an end cap for finished / frogged projects */}
                   {!startsBefore && segments.length > 0 && (
                     <span className="timeline-knot" style={{ left: `${position(project.start_date)}%` }} />
@@ -223,6 +326,7 @@ export default function CalendarWidget({ projects, settings, editable, onSetting
         {STATUSES.map((s) => (
           <span key={s.value}><span className={`timeline-legend-dot status-bg-${s.value} ${s.value === 'paused' ? 'timeline-seg-paused' : ''}`} />{s.label}</span>
         ))}
+        <span><span className="timeline-milestone timeline-milestone-legend" />Milestone done</span>
       </div>
     </div>
   )

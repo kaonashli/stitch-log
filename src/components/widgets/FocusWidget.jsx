@@ -8,6 +8,7 @@ import { daysInclusive, formatDate, todayLocal } from '../../lib/dates.js'
 import { startDateLabel } from '../../lib/projectStatus.js'
 import StatusBadge from '../StatusBadge.jsx'
 import ProjectIcon from '../ProjectIcon.jsx'
+import MilestoneProgress from '../MilestoneProgress.jsx'
 
 export default function FocusWidget({ projects, focusId, editable }) {
   const project = projects.find((p) => p.id === focusId)
@@ -46,6 +47,8 @@ export default function FocusWidget({ projects, focusId, editable }) {
             {days && ` · day ${days}`}
           </small>
         )}
+        {/* Milestones: how far along, and what's next */}
+        <MilestoneProgress milestones={project.project_milestones} showNext />
         {project.description && <p className="focus-description">{project.description}</p>}
       </div>
     </Link>

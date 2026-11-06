@@ -130,6 +130,8 @@ export default function ProjectFormPage() {
           quantity: m.quantity ?? '',
           unsure: m.quantity === null, // amount "Unsure"
           fibers: m.fibers ?? [],
+          colors: m.colors ?? [],
+          on_wishlist: m.on_wishlist ?? false, // on your wish list (kept when you save)
           cost: m.cost ?? '',
           brand: m.brand ?? '', color: m.color ?? '', weight: m.weight ?? '',
           yardage: m.yardage ?? '', gauge: m.gauge ?? '', size: m.size ?? '', notes: m.notes ?? '',

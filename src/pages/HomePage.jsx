@@ -16,6 +16,7 @@ import { useAuth } from '../context/AuthContext.jsx'
 import Avatar from '../components/Avatar.jsx'
 import StatusBadge from '../components/StatusBadge.jsx'
 import ProjectIcon from '../components/ProjectIcon.jsx'
+import MilestoneProgress from '../components/MilestoneProgress.jsx'
 import { colorVar } from '../lib/projectLooks.js'
 import ShoppingList from '../components/ShoppingList.jsx'
 import Footer from '../components/Footer.jsx'
@@ -65,7 +66,7 @@ export default function HomePage() {
 
       const activeQuery = supabase
         .from('projects')
-        .select('id, title, status, icon, color')
+        .select('id, title, status, icon, color, project_milestones(id, title, done_at, sort_order, created_at)')
         .eq('user_id', user.id)
         .eq('status', 'in_progress')
         .is('deleted_at', null)
@@ -242,7 +243,11 @@ export default function HomePage() {
               <li key={p.id}>
                 <Link to={`/projects/${p.id}`} className="row">
                   <ProjectIcon icon={p.icon} color={p.color} size={26} />
-                  <span>{p.title}</span>
+                  <span className="active-project-text">
+                    <span>{p.title}</span>
+                    {/* milestones done so far, and the next one */}
+                    <MilestoneProgress milestones={p.project_milestones} showNext />
+                  </span>
                 </Link>
               </li>
             ))}
