@@ -11,7 +11,7 @@
 // With no saved settings it shows every status in the normal order.
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
-import { ArrowLeft, ArrowRight } from 'lucide-react'
+import { ArrowLeft, ArrowRight, ChevronRight } from 'lucide-react'
 import { STATUSES, statusLabel } from '../../lib/constants.js'
 import { useTouchDrag } from '../../lib/useTouchDrag.js'
 import ProjectIcon from '../ProjectIcon.jsx'
@@ -66,7 +66,8 @@ function ColumnSettings({ columns, onChange }) {
   )
 }
 
-export default function KanbanWidget({ projects, canDrag, onStatusChange, settings, customizing, onSettingsChange }) {
+// columnLinks = column titles open a page with that status's projects (your own profile)
+export default function KanbanWidget({ projects, canDrag, onStatusChange, settings, customizing, onSettingsChange, columnLinks = false }) {
   const [mouseOverColumn, setMouseOverColumn] = useState(null) // column under a mouse drag
   const columns = getColumns(settings)
   const visibleColumns = columns.filter((c) => c.visible)
@@ -118,11 +119,25 @@ export default function KanbanWidget({ projects, canDrag, onStatusChange, settin
                 onDragLeave={() => setMouseOverColumn(null)}
                 onDrop={(e) => handleDrop(e, status)}
               >
-                <div className={`kanban-column-title status-text-${status}`}>
-                  <span className={`dot status-bg-${status}`} />
-                  {statusLabel(status)}
-                  <span className="muted">{columnProjects.length}</span>
-                </div>
+                {columnLinks ? (
+                  // Tap the title to manage this column's projects on their own page
+                  <Link
+                    to={`/projects/status/${status}`}
+                    className={`kanban-column-title kanban-column-link status-text-${status}`}
+                    title={`Open ${statusLabel(status)} projects`}
+                  >
+                    <span className={`dot status-bg-${status}`} />
+                    {statusLabel(status)}
+                    <span className="muted">{columnProjects.length}</span>
+                    <ChevronRight size={14} className="kanban-column-arrow" />
+                  </Link>
+                ) : (
+                  <div className={`kanban-column-title status-text-${status}`}>
+                    <span className={`dot status-bg-${status}`} />
+                    {statusLabel(status)}
+                    <span className="muted">{columnProjects.length}</span>
+                  </div>
+                )}
                 {columnProjects.map((project) => (
                   <Link
                     key={project.id}

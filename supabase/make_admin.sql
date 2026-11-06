@@ -1,3 +1,4 @@
+-- RUN IN SUPABASE: yes (exact date unknown, on or before 2026-11-05)
 -- Make an existing account an admin.
 -- 1. Sign up normally in the app first.
 -- 2. Replace the email below, then run this in Supabase > SQL Editor.

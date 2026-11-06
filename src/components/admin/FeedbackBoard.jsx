@@ -118,7 +118,11 @@ export default function FeedbackBoard({ onChange }) {
                       <span className={`badge feedback-kind feedback-kind-${report.kind}`}>
                         <KindIcon size={11} /> {feedbackKindLabel(report.kind)}
                       </span>
-                      <strong>{report.title}</strong>
+                      <strong>
+                        {/* Short ID number, handy for talking about a report */}
+                        {report.number && <span className="feedback-number">#{report.number}</span>}
+                        {report.title}
+                      </strong>
                       <small className="muted">
                         From {report.reporter ? report.reporter.display_name : `${report.guest_name} (guest)`} · {formatDate(toLocalDateString(new Date(report.created_at)))}
                       </small>
@@ -168,7 +172,7 @@ export default function FeedbackBoard({ onChange }) {
       {/* The card that follows your finger during a touch drag */}
       {touch.ghost && (
         <div className="drag-ghost" style={{ left: touch.ghost.x, top: touch.ghost.y }} aria-hidden="true">
-          <strong>{touch.ghost.item.title}</strong>
+          <strong>{touch.ghost.item.number && `#${touch.ghost.item.number} `}{touch.ghost.item.title}</strong>
         </div>
       )}
     </div>

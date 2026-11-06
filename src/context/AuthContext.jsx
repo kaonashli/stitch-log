@@ -66,6 +66,23 @@ export function AuthProvider({ children }) {
     return () => { cancelled = true }
   }, [userId]) // eslint-disable-line react-hooks/exhaustive-deps
 
+  // "View as" (admins only, for testing): see the app the way someone else
+  // would. null = normal. 'user' = a regular account (no admin features).
+  // 'friend' / 'stranger' = also see your own profile and projects the way a
+  // friend / a stranger would. Kept for this browser tab only (sessionStorage).
+  const [viewAsChoice, setViewAsChoice] = useState(() => {
+    try { return sessionStorage.getItem('viewAs') || null } catch { return null }
+  })
+  const isAdmin = permissions.includes('admin.access')
+  const viewAs = isAdmin ? viewAsChoice : null
+  function setViewAs(mode) {
+    setViewAsChoice(mode)
+    try {
+      if (mode) sessionStorage.setItem('viewAs', mode)
+      else sessionStorage.removeItem('viewAs')
+    } catch { /* storage blocked: it just won't be remembered */ }
+  }
+
   const value = {
     session,
     user,
@@ -73,7 +90,13 @@ export function AuthProvider({ children }) {
     permissions,
     // Still working out who is logged in (show a spinner instead of the page)
     loading: !authReady || (userId !== null && loadedFor !== userId),
-    hasPermission: (key) => permissions.includes(key),
+    // While viewing as someone else, act as if you had no permissions
+    hasPermission: (key) => !viewAs && permissions.includes(key),
+    isAdmin, // the REAL answer, even while viewing as someone else
+    viewAs,
+    setViewAs,
+    // Viewing your own things as a friend or stranger would see them
+    viewingAsOther: viewAs === 'friend' || viewAs === 'stranger',
     refreshProfile: () => (userId ? loadUserData(userId) : null),
     signOut: () => supabase.auth.signOut(),
   }

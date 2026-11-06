@@ -1,3 +1,4 @@
+-- RUN IN SUPABASE: yes (exact date unknown, on or before 2026-11-05)
 -- =====================================================================
 -- Migration 012: choose a photo as a project's main image
 --

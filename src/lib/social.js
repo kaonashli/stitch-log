@@ -29,7 +29,7 @@ export async function removeHeart(projectId, userId) {
 export async function loadComments(projectId) {
   const { data, error } = await supabase
     .from('project_comments')
-    .select(`id, body, created_at, user_id, author:profiles!project_comments_user_id_fkey(${PROFILE_FIELDS}), mentions:comment_mentions(user:profiles(id, username))`)
+    .select(`id, body, created_at, user_id, parent_id, author:profiles!project_comments_user_id_fkey(${PROFILE_FIELDS}), mentions:comment_mentions(user:profiles(id, username))`)
     .eq('project_id', projectId)
     .order('created_at')
   if (error) throw error
@@ -37,11 +37,13 @@ export async function loadComments(projectId) {
 }
 
 // Post a comment. mentionIds = people tagged in it (see extractMentions).
-// The database checks each tag is allowed and notifies the tagged people.
-export async function addComment(projectId, body, mentionIds = []) {
+// parentId = the comment this one replies to (or null).
+// The database checks each tag is allowed and notifies the tagged people
+// (and, for a reply, the person replied to).
+export async function addComment(projectId, body, mentionIds = [], parentId = null) {
   const { data, error } = await supabase
     .from('project_comments')
-    .insert({ project_id: projectId, body })
+    .insert({ project_id: projectId, body, parent_id: parentId })
     .select('id')
     .single()
   if (error) throw error

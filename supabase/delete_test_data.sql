@@ -1,3 +1,4 @@
+-- RUN IN SUPABASE: yes (exact date unknown, on or before 2026-11-05)
 -- =====================================================================
 -- Stitch Log - remove the FAKE test projects added by seed_test_data.sql
 --

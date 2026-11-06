@@ -5,13 +5,10 @@
 // The counts and "did I heart it" come from the home page (loaded for the
 // whole feed at once), so the same project shows the same numbers on every card.
 import { useState } from 'react'
-import { Link } from 'react-router-dom'
-import { Heart, MessageCircle, Send, Trash2 } from 'lucide-react'
+import { Heart, MessageCircle, Send } from 'lucide-react'
 import { addComment, deleteComment, extractMentions, loadComments } from '../lib/social.js'
 import MentionInput from './MentionInput.jsx'
-import CommentText from './CommentText.jsx'
-import { timeAgo } from '../lib/dates.js'
-import Avatar from './Avatar.jsx'
+import CommentThread from './CommentThread.jsx'
 
 export default function FeedSocial({ projectId, me, hearted, heartCount, commentCount, onToggleHeart, onCommentCountChange }) {
   const [open, setOpen] = useState(false)
@@ -50,12 +47,29 @@ export default function FeedSocial({ projectId, me, hearted, heartCount, comment
     setBusy(false)
   }
 
+  // Reply to a comment (CommentThread calls this). Returns true when it worked.
+  async function handleReply(parent, body, taggablePeople) {
+    setError('')
+    try {
+      await addComment(projectId, body, extractMentions(body, taggablePeople), parent.id)
+      setComments(await loadComments(projectId))
+      onCommentCountChange(1)
+      return true
+    } catch (err) {
+      setError(err.message)
+      return false
+    }
+  }
+
   async function handleDelete(comment) {
-    if (!window.confirm('Delete your comment?')) return
+    const hasReplies = comments.some((c) => c.parent_id === comment.id)
+    if (!window.confirm(hasReplies ? 'Delete your comment and its replies?' : 'Delete your comment?')) return
     try {
       await deleteComment(comment.id)
-      setComments(comments.filter((c) => c.id !== comment.id))
-      onCommentCountChange(-1)
+      // its replies go too, so reload and count again
+      const fresh = await loadComments(projectId)
+      onCommentCountChange(fresh.length - comments.length)
+      setComments(fresh)
     } catch (err) {
       setError(err.message)
     }
@@ -92,23 +106,18 @@ export default function FeedSocial({ projectId, me, hearted, heartCount, comment
           {comments === null && !error && <small className="muted">Loading comments...</small>}
           {comments?.length === 0 && <small className="muted">No comments yet. Be the first!</small>}
 
-          {comments?.map((c) => (
-            <div key={c.id} className="feed-comment">
-              <Link to={`/u/${c.author?.username}`}><Avatar profile={c.author} size={28} /></Link>
-              <div className="feed-comment-body">
-                <div className="comment-meta">
-                  <Link to={`/u/${c.author?.username}`} className="strong-link">{c.author?.display_name}</Link>
-                  <small className="muted">{timeAgo(c.created_at)}</small>
-                  {c.user_id === me.id && (
-                    <button className="icon-btn comment-delete" onClick={() => handleDelete(c)} aria-label="Delete comment" title="Delete comment">
-                      <Trash2 size={13} />
-                    </button>
-                  )}
-                </div>
-                <CommentText comment={c} />
-              </div>
-            </div>
-          ))}
+          {comments?.length > 0 && (
+            <CommentThread
+              comments={comments}
+              me={me}
+              projectId={projectId}
+              avatarSize={28}
+              canReply
+              canDelete={(c) => c.user_id === me.id}
+              onDelete={handleDelete}
+              onReply={handleReply}
+            />
+          )}
 
           <form onSubmit={handlePost} className="feed-comment-form">
             <MentionInput

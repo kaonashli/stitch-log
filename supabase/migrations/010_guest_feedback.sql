@@ -1,3 +1,4 @@
+-- RUN IN SUPABASE: yes (exact date unknown, on or before 2026-11-05)
 -- =====================================================================
 -- Migration 010: let people send bug reports / change requests without
 -- logging in

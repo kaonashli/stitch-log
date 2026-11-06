@@ -1,3 +1,4 @@
+-- RUN IN SUPABASE: yes (exact date unknown, on or before 2026-11-05)
 -- =====================================================================
 -- Migration 004: the default project icon is now a ball of yarn
 --

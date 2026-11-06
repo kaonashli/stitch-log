@@ -40,7 +40,7 @@ export async function sendFeedback({ kind, title, details, guestName = null, gue
 export async function loadMyFeedback(userId) {
   const { data, error } = await supabase
     .from('feedback_reports')
-    .select('id, kind, title, status, created_at')
+    .select('id, number, kind, title, status, created_at')
     .eq('user_id', userId)
     .order('created_at', { ascending: false })
   if (error) throw error
@@ -50,7 +50,7 @@ export async function loadMyFeedback(userId) {
 export async function loadAllFeedback() {
   const { data, error } = await supabase
     .from('feedback_reports')
-    .select('id, kind, title, details, status, created_at, guest_name, guest_email, reporter:profiles!feedback_reports_user_id_fkey(id, username, display_name, avatar_path)')
+    .select('id, number, kind, title, details, status, created_at, guest_name, guest_email, reporter:profiles!feedback_reports_user_id_fkey(id, username, display_name, avatar_path)')
     .order('created_at', { ascending: false })
   if (error) throw error
   return data

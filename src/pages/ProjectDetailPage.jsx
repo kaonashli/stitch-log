@@ -2,11 +2,18 @@
 // Friends can see this page too; only the owner gets Edit / Delete.
 import { useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
-import { CalendarDays, Check, ChevronLeft, ChevronRight, ExternalLink, Gauge, Gift, Lock, Pencil, RotateCcw, Trash2, X } from 'lucide-react'
+import {
+  CalendarDays, Check, ChevronLeft, ChevronRight, EyeOff, Gauge, Gift, Link2, Lock, Pencil, RotateCcw, Star, Trash2, X,
+} from 'lucide-react'
 import { supabase } from '../lib/supabase.js'
 import { getPhotoUrls } from '../lib/images.js'
 import { DELETE_AFTER_DAYS, deleteForever, expiryDate, moveToTrash, restoreProject } from '../lib/trash.js'
-import { formatDate, todayLocal } from '../lib/dates.js'
+import { formatDate } from '../lib/dates.js'
+import { startDateLabel, statusChangeFields } from '../lib/projectStatus.js'
+import {
+  ENJOYMENT_LABELS, MAKE_AGAIN_OPTIONS, REFLECTION_FIELDS, hasWrapUp, linkLabel, loadLinks, loadRecipients, loadReflections,
+} from '../lib/projectExtras.js'
+import TaggedText from '../components/TaggedText.jsx'
 import {
   MATERIAL_FIELDS, MATERIAL_SECTIONS, MATERIAL_TYPES, STATUSES, formatMoney, hasCost, materialLineCost, withCost,
 } from '../lib/constants.js'
@@ -22,10 +29,13 @@ import ProjectSocial from '../components/ProjectSocial.jsx'
 export default function ProjectDetailPage() {
   const { id } = useParams()
   const navigate = useNavigate()
-  const { user, profile: me } = useAuth()
+  const { user, profile: me, refreshProfile, viewAs, viewingAsOther } = useAuth()
   const [project, setProject] = useState(null)
   const [photos, setPhotos] = useState([]) // [{ id, storage_path, url }]
   const [notes, setNotes] = useState('') // private notes, only loaded for the owner
+  const [recipients, setRecipients] = useState([]) // "Who it's for"
+  const [links, setLinks] = useState([])
+  const [reflections, setReflections] = useState({}) // wrap-up answers
   const [openPhoto, setOpenPhoto] = useState(null) // index of the photo shown large, or null
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -53,6 +63,16 @@ export default function ProjectDetailPage() {
         const sorted = data.project_photos.sort((a, b) => a.sort_order - b.sort_order)
         const urls = await getPhotoUrls(sorted.map((p) => p.storage_path))
         setPhotos(sorted.map((p) => ({ ...p, url: urls[p.storage_path] })))
+
+        // The database only returns private links and answers to the owner
+        const [recipientList, linkList, answers] = await Promise.all([
+          loadRecipients(id).catch(() => []),
+          loadLinks(id).catch(() => []),
+          loadReflections(id).catch(() => ({})),
+        ])
+        setRecipients(recipientList)
+        setLinks(linkList)
+        setReflections(answers)
 
         // Private notes (the database only returns them to the owner anyway)
         if (data.user_id === user.id) {
@@ -102,22 +122,45 @@ It will be moved to Recently deleted (at the bottom of My projects) ` +
 
   // Quick status change for the owner (handy on phones, where kanban drag doesn't work)
   async function handleStatusChange(event) {
-    const status = event.target.value
-    const changes = { status }
-    const today = todayLocal()
-    // Same rule as the kanban: finishing fills in today as the finish date if it's empty
-    if (status === 'finished' && !project.finish_date && today >= project.start_date) changes.finish_date = today
+    // Same rules as the project board (start date when leaving Idea, finish date when Finished)
+    const changes = statusChangeFields(project, event.target.value)
     const { error } = await supabase.from('projects').update(changes).eq('id', project.id)
     if (error) return setError(error.message)
     setProject({ ...project, ...changes })
   }
 
+  // Star / unstar this as your focus project (only one at a time)
+  async function toggleFocus() {
+    const next = me.focus_project_id === project.id ? null : project.id
+    const { error } = await supabase.from('profiles').update({ focus_project_id: next }).eq('id', user.id)
+    if (error) return setError(error.message)
+    refreshProfile()
+  }
+
   if (loading) return <Spinner />
   if (!project) return <ErrorMessage message={error} />
 
-  const isOwner = project.user_id === user.id
+  // Admin "view as": a stranger can't open anyone's projects
+  if (viewAs === 'stranger') {
+    return (
+      <div className="card empty">
+        <EyeOff size={24} />
+        <p>A stranger can't see this project. Only friends of its owner can.</p>
+      </div>
+    )
+  }
+
+  // "View as a friend" on your own project: no owner tools, no private things
+  const isOwner = project.user_id === user.id && !viewingAsOther
+  const showPrivate = !viewingAsOther
+  const isFocus = me.focus_project_id === project.id
   const coverPhoto = photos.find((p) => p.is_cover)
+  const shownLinks = links.filter((l) => showPrivate || l.is_public)
+  const shownAnswers = REFLECTION_FIELDS
+    .map((f) => ({ ...f, answer: reflections[f.field] }))
+    .filter((f) => f.answer && (showPrivate || f.answer.is_public))
   const materials = [...project.project_materials]
+    .map((m) => (showPrivate ? m : { ...m, cost: null })) // costs are private
     .sort((a, b) => a.sort_order - b.sort_order || a.created_at.localeCompare(b.created_at))
   // Total cost of all materials (cost each x amount), and how much of it is still to buy
   const totalCost = materials.reduce((sum, m) => sum + materialLineCost(m), 0)
@@ -182,6 +225,17 @@ It will be moved to Recently deleted (at the bottom of My projects) ` +
           </div>
           {isOwner && (
             <div className="row">
+              {/* Focus project: the one you're showing off on your profile */}
+              {!project.deleted_at && (
+                <button
+                  className={`btn btn-ghost focus-btn ${isFocus ? 'focus-btn-on' : ''}`}
+                  onClick={toggleFocus}
+                  aria-pressed={isFocus}
+                  title={isFocus ? 'Your focus project. Tap to unstar.' : 'Star as your focus project'}
+                >
+                  <Star size={16} fill={isFocus ? 'currentColor' : 'none'} /> {isFocus ? 'Focus' : 'Make focus'}
+                </button>
+              )}
               <Link to={`/projects/${project.id}/edit`} className="btn btn-ghost"><Pencil size={16} /> Edit</Link>
               {/* Already deleted? The banner at the top has Restore / Delete forever instead */}
               {!project.deleted_at && <button className="btn btn-danger" onClick={handleDelete}><Trash2 size={16} /> Delete</button>}
@@ -197,14 +251,36 @@ It will be moved to Recently deleted (at the bottom of My projects) ` +
         )}
 
         <dl className="details">
-          <div><dt><CalendarDays size={16} /> Started</dt><dd>{formatDate(project.start_date)}</dd></div>
+          {/* Ideas only have a planned start date (maybe none yet) */}
+          {(project.start_date || project.status !== 'idea') && (
+            <div><dt><CalendarDays size={16} /> {startDateLabel(project.status)}</dt><dd>{formatDate(project.start_date) || 'Not set'}</dd></div>
+          )}
           {project.finish_date && <div><dt><CalendarDays size={16} /> Finished</dt><dd>{formatDate(project.finish_date)}</dd></div>}
-          {project.made_for && <div><dt><Gift size={16} /> For</dt><dd>{project.made_for}</dd></div>}
-          {project.pattern_url && (
+          {recipients.length > 0 && (
             <div>
-              <dt><ExternalLink size={16} /> Pattern</dt>
-              {/* rel="noopener noreferrer" stops the other site from controlling this tab */}
-              <dd><a href={project.pattern_url} target="_blank" rel="noopener noreferrer">{project.pattern_url}</a></dd>
+              <dt><Gift size={16} /> For</dt>
+              <dd className="recipient-list">
+                {recipients.map((r) => (r.person
+                  ? <Link key={r.id} to={`/u/${r.person.username}`} className="person-chip person-chip-tagged">
+                      <Avatar profile={r.person} size={18} />
+                      {r.person.id === project.user_id ? `${r.person.display_name} (themselves)` : r.person.display_name}
+                    </Link>
+                  : <span key={r.id} className="person-chip">{r.name}</span>))}
+              </dd>
+            </div>
+          )}
+          {shownLinks.length > 0 && (
+            <div>
+              <dt><Link2 size={16} /> Links</dt>
+              <dd className="link-list">
+                {shownLinks.map((l) => (
+                  <span key={l.id} className="row">
+                    {/* rel="noopener noreferrer" stops the other site from controlling this tab */}
+                    <a href={l.url} target="_blank" rel="noopener noreferrer">{linkLabel(l)}</a>
+                    {!l.is_public && <Lock size={12} className="muted" aria-label="Only you can see this link" />}
+                  </span>
+                ))}
+              </dd>
             </div>
           )}
           {project.difficulty && (
@@ -217,6 +293,36 @@ It will be moved to Recently deleted (at the bottom of My projects) ` +
         <div className="card stack-sm">
           <h2>Description</h2>
           <p className="prose">{project.description}</p>
+        </div>
+      )}
+
+      {/* Wrap-up answers (finished / frogged projects) */}
+      {hasWrapUp(project.status) && shownAnswers.length > 0 && (
+        <div className="card stack-sm">
+          <h2>Wrap-up</h2>
+          <dl className="wrapup-list">
+            {shownAnswers.map(({ field, label, answer }) => (
+              <div key={field}>
+                <dt>
+                  {label}
+                  {!answer.is_public && <Lock size={12} className="muted" aria-label="Only you can see this" />}
+                </dt>
+                <dd>
+                  {field === 'make_again' && (MAKE_AGAIN_OPTIONS.find((o) => o.value === answer.value)?.label ?? answer.value)}
+                  {field === 'enjoyment' && (
+                    <span className="row">
+                      <span className="enjoyment-picker enjoyment-readonly" aria-hidden="true">
+                        {[1, 2, 3, 4, 5].map((n) => <span key={n} className={`enjoyment-dot ${Number(answer.value) >= n ? 'enjoyment-dot-on' : ''}`} />)}
+                      </span>
+                      {ENJOYMENT_LABELS[Number(answer.value)]}
+                    </span>
+                  )}
+                  {field === 'skills' && <p className="prose">{answer.value}</p>}
+                  {field === 'recommend_to' && <TaggedText text={answer.value} />}
+                </dd>
+              </div>
+            ))}
+          </dl>
         </div>
       )}
 
@@ -252,12 +358,16 @@ It will be moved to Recently deleted (at the bottom of My projects) ` +
                       {MATERIAL_TYPES[m.material_type]?.label ?? m.material_type}
                     </strong>
                     <span className="material-values">
+                      {m.quantity === null && <span><span className="muted">Amount:</span> Unsure</span>}
                       {MATERIAL_TYPES[m.material_type]?.fields
                         // amount is shown before the name; cost is shown on the right
                         .filter((field) => field !== 'quantity' && field !== 'cost')
-                        .filter((field) => m[field] !== null && m[field] !== '')
+                        .filter((field) => m[field] !== null && m[field] !== undefined && m[field] !== '' && !(Array.isArray(m[field]) && !m[field].length))
                         .map((field) => (
-                          <span key={field}><span className="muted">{MATERIAL_FIELDS[field].label}:</span> {m[field]}</span>
+                          <span key={field}>
+                            <span className="muted">{MATERIAL_FIELDS[field].label}:</span>{' '}
+                            {Array.isArray(m[field]) ? m[field].join(', ') : m[field]}
+                          </span>
                         ))}
                     </span>
                     {hasCost(m) && (
@@ -285,7 +395,7 @@ It will be moved to Recently deleted (at the bottom of My projects) ` +
       </div>
 
       {/* Hearts and comments */}
-      <ProjectSocial project={project} me={me} />
+      <ProjectSocial project={project} me={me} viewingAsOther={viewingAsOther} />
 
       {isOwner && (
         <div className="card stack-sm card-private">

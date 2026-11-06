@@ -141,7 +141,7 @@ export default function FeedbackForm() {
             {mine.map((r) => (
               <li key={r.id}>
                 <span className={`badge feedback-kind feedback-kind-${r.kind}`}>{feedbackKindLabel(r.kind)}</span>
-                <span className="my-report-title">{r.title}</span>
+                <span className="my-report-title">{r.number && <span className="muted">#{r.number} </span>}{r.title}</span>
                 <small className="muted">{timeAgo(r.created_at)}</small>
                 <span className={`badge feedback-status feedback-status-${r.status}`}>{feedbackStatusLabel(r.status)}</span>
               </li>

@@ -25,6 +25,33 @@ export const RELEASES = [
           'When a friend starts a new project, it shows up in your friend activity, with its photo if it has one.',
           "Heart and comment on your friends' projects right from the friend activity, without opening the project.",
           "Tag friends in comments: start typing a friend's name (or type @) and pick them from the suggestions. Tags are highlighted as you write. You can tag friends who are also friends with the project's owner, and they get a notification.",
+          'Reply to a comment, and the person you answered gets a notification. Replies show right under the comment they belong to.',
+        ],
+      },
+      {
+        heading: 'Friends',
+        items: [
+          'Add a few words "About me" in Settings. It shows on your profile and when people look you up to add you.',
+          "See your friends' friends lists on their profiles.",
+          'New here? You will find friend requests waiting from Buddy and the Stitch Log team.',
+        ],
+      },
+      {
+        heading: 'Badges',
+        items: [
+          'Earn badges on your profile: your first project started and finished, knitting and crochet milestones (1, 5, 10, 15, 20, and 30 projects), quick finishes, gifts for others, friends, and a few surprises. Each one has its own little picture.',
+          'Tap a badge to see what it is for, and "All badges" to see the ones still to earn.',
+        ],
+      },
+      {
+        heading: 'New profile widgets',
+        items: [
+          'Project gallery: your projects in a photo grid, three to a row. Choose up to 9, drag them into the order you like, and tap "See more" for the rest.',
+          'Focus project: star the project you are most proud of (or busiest with) on its page, and show it off.',
+          'Made for: how many projects you have made for each person.',
+          'Favorite fibers: the fibers you use the most.',
+          'The project timeline can now show the last 2 or 5 years, and pauses are striped so they stand out, with how many days each project was paused.',
+          'Tap a column title on your project board (like "Idea") to open all those projects on their own page, where you can add, move, edit, or delete them.',
         ],
       },
       {
@@ -35,6 +62,13 @@ export const RELEASES = [
           "Deleted projects disappear from your friends' activity right away.",
           "Make a project private with the switch at the top of the form. Only you can see it, but it still counts in the project numbers on your profile.",
           "Your profile shows how many projects you have, how many are in progress, and how many are finished.",
+          '"Who it\'s for": tag yourself or a friend, or type any name (like Grandma) and press Enter. You can add more than one person.',
+          'Add as many links as you like to a project, each with a short title. Each link can be for your friends to see or just for you.',
+          'Finished or frogged a project? Answer a few wrap-up questions: would you make it again, how much you enjoyed it, the skills you learned, and who you would recommend it to (you can tag friends). Each answer can be for friends or just for you.',
+          'Ideas get a planned start date (or none). When an idea moves on, its start date becomes today. Moving a project to Finished sets its finish date to today.',
+          'Not sure how much yarn you need? Set the amount to "Unsure".',
+          'Pick the fiber of your yarn and string (wool, cotton, acrylic...), or several for a blend.',
+          'Costs show with a simple "$".',
         ],
       },
       {

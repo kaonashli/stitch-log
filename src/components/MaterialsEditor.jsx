@@ -6,12 +6,14 @@
 // finger), or with the arrow button on the card. Each card only shows the
 // fields that make sense for its type (see MATERIAL_TYPES).
 //
-// Every material has an Amount (at least 1) and an optional "Cost each".
-// A material's cost = cost each x amount; the project total is shown below.
+// Every material has an Amount (at least 1, or tick "Unsure") and an optional
+// "Cost each". A material's cost = cost each x amount (an unsure amount counts
+// as 1); the project total is shown below. Yarn and string also have Fiber:
+// tap one or more from the list (several = a blend).
 import { useState } from 'react'
 import { ArrowDownUp, GripVertical, Trash2 } from 'lucide-react'
 import {
-  MATERIAL_FIELDS, MATERIAL_SECTIONS, MATERIAL_TYPES, YARN_WEIGHTS, formatMoney, hasCost, materialLineCost,
+  FIBERS, MATERIAL_FIELDS, MATERIAL_SECTIONS, MATERIAL_TYPES, YARN_WEIGHTS, formatMoney, hasCost, materialLineCost,
 } from '../lib/constants.js'
 import { useTouchDrag } from '../lib/useTouchDrag.js'
 
@@ -20,8 +22,8 @@ const MATERIAL_DRAG_TYPE = 'application/x-stitchlog-material'
 // A blank material. "key" is only used by React to track list items.
 export function newMaterial(type, status = 'owned') {
   return {
-    key: crypto.randomUUID(), material_type: type, status, quantity: 1, cost: '',
-    brand: '', color: '', weight: '', yardage: '', gauge: '', size: '', notes: '',
+    key: crypto.randomUUID(), material_type: type, status, quantity: 1, unsure: false, cost: '',
+    brand: '', color: '', weight: '', yardage: '', gauge: '', size: '', notes: '', fibers: [],
   }
 }
 
@@ -144,6 +146,69 @@ export default function MaterialsEditor({ materials, onChange }) {
                   <div className="field-grid">
                     {type.fields.map((field) => {
                       const info = MATERIAL_FIELDS[field]
+
+                      // Fiber: tap one or more (a blend), tap again to remove
+                      if (field === 'fibers') {
+                        const picked = material.fibers ?? []
+                        return (
+                          <div key={field} className="field field-wide">
+                            <span>{info.label} {picked.length > 1 && <small className="muted">(blend)</small>}</span>
+                            <div className="fiber-chips">
+                              {FIBERS.map((fiber) => {
+                                const on = picked.includes(fiber)
+                                return (
+                                  <button
+                                    key={fiber}
+                                    type="button"
+                                    className={`chip chip-sm ${on ? 'chip-active' : ''}`}
+                                    aria-pressed={on}
+                                    onClick={() => updateMaterial(material.key, 'fibers', on ? picked.filter((f) => f !== fiber) : [...picked, fiber])}
+                                  >
+                                    {fiber}
+                                  </button>
+                                )
+                              })}
+                            </div>
+                          </div>
+                        )
+                      }
+
+                      // Amount: a number, or tick "Unsure"
+                      if (field === 'quantity') {
+                        return (
+                          <div key={field} className="field">
+                            <span>{info.label}</span>
+                            <div className="amount-row">
+                              <input
+                                type="number"
+                                min={1}
+                                step={1}
+                                inputMode="numeric"
+                                disabled={material.unsure}
+                                value={material.unsure ? '' : material.quantity}
+                                placeholder={material.unsure ? 'Unsure' : undefined}
+                                // Anything below 1 becomes 1 right away. An empty box is allowed
+                                // while typing (so you can clear it and type a new number)...
+                                onChange={(e) => updateMaterial(material.key, 'quantity', e.target.value === '' ? '' : cleanQuantity(e.target.value))}
+                                // ...and goes back to 1 when you leave it
+                                onBlur={(e) => { if (!material.unsure) updateMaterial(material.key, 'quantity', cleanQuantity(e.target.value)) }}
+                                aria-label="Amount"
+                              />
+                              <label className="unsure-check">
+                                <input
+                                  type="checkbox"
+                                  checked={Boolean(material.unsure)}
+                                  onChange={(e) => onChange(materials.map((m) => (m.key === material.key
+                                    ? { ...m, unsure: e.target.checked, quantity: e.target.checked ? '' : 1 }
+                                    : m)))}
+                                />
+                                Unsure
+                              </label>
+                            </div>
+                          </div>
+                        )
+                      }
+
                       return (
                         <label key={field} className={`field ${field === 'notes' ? 'field-wide' : ''}`}>
                           <span>{info.label}</span>
@@ -151,21 +216,11 @@ export default function MaterialsEditor({ materials, onChange }) {
                             type={info.type || 'text'}
                             min={info.type === 'number' ? (info.min ?? 0) : undefined}
                             step={info.type === 'number' ? (info.step ?? 'any') : undefined}
-                            inputMode={field === 'quantity' ? 'numeric' : field === 'cost' ? 'decimal' : undefined}
+                            inputMode={field === 'cost' ? 'decimal' : undefined}
                             placeholder={info.placeholder}
                             list={field === 'weight' ? 'yarn-weights' : undefined}
                             value={material[field]}
-                            onChange={(e) => {
-                              const value = e.target.value
-                              // Amount: anything below 1 becomes 1 right away. An empty box is
-                              // allowed while typing (so you can clear it and type a new number).
-                              if (field === 'quantity' && value !== '') updateMaterial(material.key, field, cleanQuantity(value))
-                              else updateMaterial(material.key, field, value)
-                            }}
-                            // ...and an empty Amount box goes back to 1 when you leave it
-                            onBlur={field === 'quantity'
-                              ? (e) => updateMaterial(material.key, field, cleanQuantity(e.target.value))
-                              : undefined}
+                            onChange={(e) => updateMaterial(material.key, field, e.target.value)}
                           />
                         </label>
                       )
@@ -232,8 +287,12 @@ export function materialsToRows(materials, projectId) {
     }
     for (const field of MATERIAL_TYPES[m.material_type].fields) {
       if (field === 'cost') continue // saved separately, in the private material_costs table
+      if (field === 'fibers') {
+        row.fibers = m.fibers?.length ? m.fibers : null
+        continue
+      }
       const value = String(m[field] ?? '').trim()
-      if (field === 'quantity') row.quantity = cleanQuantity(value)
+      if (field === 'quantity') row.quantity = m.unsure ? null : cleanQuantity(value) // NULL = "Unsure"
       else if (field === 'yardage') row.yardage = value === '' ? null : Number(value)
       else row[field] = value === '' ? null : value
     }

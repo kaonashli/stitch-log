@@ -13,8 +13,27 @@ All notable changes to Stitch Log are listed here, newest first.
 - Private projects: a switch in the top-right corner of the project form. Private projects are visible only to their owner (not friends, not admins); they still count in number-only stats.
 - Profile header shows project counts (total, in progress, finished), including private projects, to you and your friends.
 - Admins get a notification for every new bug report or change request (including guest reports); tapping it opens the Feedback tab.
+- Login and signup pages have a one-line description of the app.
+- Admin feedback board shows each report's ID number (#12), also shown on your own reports.
+- Admin Users tab: Make admin / Remove admin button for other users (with a confirmation).
+- Admin "View the app as" (Dashboard tab): a stranger, a friend, or a regular user, for testing. Admin features are hidden and your own profile and projects look the way that person would see them; a bar at the top lets you stop.
+- New members: admins get a notification, and the new member gets friend requests from the admins and from Buddy (@BuddyTheYarnahoLic).
+- "About me" on your profile (Settings), also shown in friend search and friend requests.
+- Friends can see each other's friends lists on their profiles.
+- "Who it's for" takes chips: tag yourself or friends, or type any name and press Enter to make it a category (names you've used before are suggested). Old "Who it's for" text was moved over.
+- Several links per project, each with an optional title and a public (friends) / private switch; public by default. The old pattern link was moved over as a link titled "Pattern".
+- Wrap-up questions for finished and frogged projects: would I make this again, enjoyment level, skills learned, and who I'd recommend it to (with friend tags). Each answer is public (friends) or private.
+- Material amount can be "Unsure". Yarn and string have a Fiber field with a list of fibers; pick several for a blend.
+- Replies to comments, on the project page and in the home feed; the person replied to gets a notification. Deleting a comment deletes its replies.
+- Focus project: star one project from its page, and show it off with the new Focus project widget.
+- New profile widgets: Project gallery (photo grid, 3 per row, up to 9 chosen projects, drag to reorder, "See more" for the rest), Focus project, Made for (projects per person), and Favorite fibers.
+- Project board column titles open a page with that status's projects, where you can add a project in that status, move projects to another status, edit, or delete them.
+- Project timeline ranges: 2 years and 5 years. Paused stretches are striped and each row says how many days the project was paused.
+- Badges on your profile, worked out from your projects and friends (deleting the projects that earned one removes it): First Project Started, First Project Completed, Knitter and Crocheter (1, 5, 10, 15, 20, 30 finished), Done Within a Year / 6 Months / a Month, Quick Knitter, Quick Crocheter (under a week), Slow and Steady (over a year), First Friend and Community (1, 3, 10, 20, 50 friends), Made with Love (1, 5, 10, 20 gifts), and Rip It, Rip It (more than 5 frogged). Each has its own picture; levels change color and show their number.
 
 ### Changed
+- Ideas have an optional planned start date. Moving a project out of Idea sets its start date to today (and it's required from then on); moving to Finished sets the finish date to today. Same rules on the board, the status dropdown, the status page, and the project form.
+- Costs show "$" instead of "US$".
 - Deleted projects are hidden from everyone else immediately, including friend activity, profiles, hearts, and comments.
 - Admin dashboard project count includes private projects.
 

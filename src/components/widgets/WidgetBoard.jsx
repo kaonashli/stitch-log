@@ -7,20 +7,39 @@
 import { useEffect, useState } from 'react'
 import { ArrowDown, ArrowUp, GripVertical, Plus, SlidersHorizontal, X } from 'lucide-react'
 import { supabase } from '../../lib/supabase.js'
-import { toLocalDateString, todayLocal } from '../../lib/dates.js'
+import { toLocalDateString } from '../../lib/dates.js'
 import { getPhotoUrls } from '../../lib/images.js'
 import { WIDGET_TYPES } from '../../lib/constants.js'
+import { statusChangeFields } from '../../lib/projectStatus.js'
 import Spinner from '../Spinner.jsx'
 import ErrorMessage from '../ErrorMessage.jsx'
 import KanbanWidget from './KanbanWidget.jsx'
 import CalendarWidget from './CalendarWidget.jsx'
+import GalleryWidget from './GalleryWidget.jsx'
+import FocusWidget from './FocusWidget.jsx'
+import MadeForWidget from './MadeForWidget.jsx'
+import FibersWidget from './FibersWidget.jsx'
 
-// Load a user's projects plus their status history (both widgets need it),
-// and a link to each project's starred main image, if it has one.
+// Widgets that have a settings panel (opened with the sliders button)
+const WIDGETS_WITH_SETTINGS = {
+  kanban: 'Choose columns',
+  gallery: 'Choose projects',
+}
+
+// Load a user's projects plus everything the widgets need: status history
+// (board, timeline), who each one is for, fibers, and a link to each
+// project's starred main image, if it has one.
 async function loadProjects(userId) {
   const { data, error } = await supabase
     .from('projects')
-    .select('id, title, status, start_date, finish_date, icon, color, craft_types(name), project_status_history(status, changed_at), project_photos(storage_path, is_cover)')
+    .select(`
+      id, title, status, start_date, finish_date, icon, color, description,
+      craft_types(name),
+      project_status_history(status, changed_at),
+      project_photos(storage_path, is_cover),
+      project_materials(material_type, fibers),
+      project_recipients(user_id, name, person:profiles!project_recipients_user_id_fkey(id, username, display_name, avatar_path))
+    `)
     .eq('user_id', userId)
     .is('deleted_at', null) // skip projects in Recently deleted
     .order('start_date', { ascending: false })
@@ -44,7 +63,8 @@ async function loadProjects(userId) {
   }))
 }
 
-export default function WidgetBoard({ userId, editable }) {
+// focusProjectId = the profile owner's starred focus project (for that widget)
+export default function WidgetBoard({ userId, editable, focusProjectId = null }) {
   const [widgets, setWidgets] = useState([])
   const [projects, setProjects] = useState([])
   const [loading, setLoading] = useState(true)
@@ -139,10 +159,8 @@ export default function WidgetBoard({ userId, editable }) {
 
   // Called by the kanban when a card is dropped in another column
   async function changeProjectStatus(project, status) {
-    const changes = { status }
-    // Moving to "finished" fills in today as the finish date if it's empty
-    const today = todayLocal()
-    if (status === 'finished' && !project.finish_date && today >= project.start_date) changes.finish_date = today
+    // Also sets the start date (leaving Idea) or the finish date (Finished)
+    const changes = statusChangeFields(project, status)
 
     const { error } = await supabase.from('projects').update(changes).eq('id', project.id)
     if (error) return setError(error.message)
@@ -201,12 +219,12 @@ export default function WidgetBoard({ userId, editable }) {
             <h3>{WIDGET_TYPES[widget.widget_type]?.label ?? widget.widget_type}</h3>
             {editable && (
               <span className="widget-controls">
-                {widget.widget_type === 'kanban' && (
+                {WIDGETS_WITH_SETTINGS[widget.widget_type] && (
                   <button
                     className={`icon-btn ${settingsOpenFor === widget.id ? 'icon-btn-active' : ''}`}
                     onClick={() => setSettingsOpenFor(settingsOpenFor === widget.id ? null : widget.id)}
-                    aria-label="Choose columns"
-                    title="Choose columns"
+                    aria-label={WIDGETS_WITH_SETTINGS[widget.widget_type]}
+                    title={WIDGETS_WITH_SETTINGS[widget.widget_type]}
                   >
                     <SlidersHorizontal size={16} />
                   </button>
@@ -232,6 +250,7 @@ export default function WidgetBoard({ userId, editable }) {
               settings={widget.settings}
               customizing={settingsOpenFor === widget.id}
               onSettingsChange={(settings) => updateSettings(widget.id, settings)}
+              columnLinks={editable}
             />
           )}
           {widget.widget_type === 'calendar' && (
@@ -242,6 +261,20 @@ export default function WidgetBoard({ userId, editable }) {
               onSettingsChange={(settings) => updateSettings(widget.id, settings)}
             />
           )}
+          {widget.widget_type === 'gallery' && (
+            <GalleryWidget
+              projects={projects}
+              settings={widget.settings}
+              editable={editable}
+              customizing={settingsOpenFor === widget.id}
+              onSettingsChange={(settings) => updateSettings(widget.id, settings)}
+            />
+          )}
+          {widget.widget_type === 'focus' && (
+            <FocusWidget projects={projects} focusId={focusProjectId} editable={editable} />
+          )}
+          {widget.widget_type === 'made_for' && <MadeForWidget projects={projects} ownerId={userId} />}
+          {widget.widget_type === 'fibers' && <FibersWidget projects={projects} />}
         </div>
       ))}
 

@@ -5,7 +5,8 @@
 // perfectly still while you scroll, instead of the whole page moving around.
 import { useEffect, useRef } from 'react'
 import { Link, NavLink, Outlet, useLocation } from 'react-router-dom'
-import { Bell, House, LogOut, Plus, Settings, Shield, User, Users } from 'lucide-react'
+import { Bell, Eye, House, LogOut, Plus, Settings, Shield, User, Users } from 'lucide-react'
+import { VIEW_AS_LABELS } from '../lib/constants.js'
 import { YarnBall } from '../lib/customIcons.jsx'
 import { useAuth } from '../context/AuthContext.jsx'
 import { useNotifications } from '../context/NotificationsContext.jsx'
@@ -21,14 +22,14 @@ function CountBadge({ count }) {
 }
 
 export default function Layout() {
-  const { profile, hasPermission, signOut } = useAuth()
+  const { profile, hasPermission, signOut, viewAs, setViewAs } = useAuth()
   const { requestCount, unreadCount } = useNotifications()
   const location = useLocation()
   const mainRef = useRef(null)
 
   // Settings is reached from the profile on phones, so keep the Profile tab
   // highlighted there too.
-  const profileTabActive = ['/profile', '/settings'].includes(location.pathname)
+  const profileTabActive = ['/profile', '/settings'].includes(location.pathname) || location.pathname.startsWith('/projects/status/')
 
   // Because <main> is the thing that scrolls (not the window), we have to
   // scroll it back to the top ourselves when you go to another page.
@@ -92,6 +93,14 @@ export default function Layout() {
 
       <main className="page-scroll" ref={mainRef}>
         <div className="page">
+          {/* Admin testing mode: a reminder, and the way back */}
+          {viewAs && (
+            <div className="view-as-banner">
+              <Eye size={16} />
+              <span>Viewing as {VIEW_AS_LABELS[viewAs]}</span>
+              <button className="btn btn-xs btn-ghost" onClick={() => setViewAs(null)}>Stop</button>
+            </div>
+          )}
           {/* The current page renders here */}
           <Outlet />
         </div>

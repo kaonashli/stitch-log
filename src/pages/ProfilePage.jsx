@@ -1,28 +1,42 @@
 // Profile page. /profile shows your own; /u/:username shows someone else's.
 // Your own profile has editable widgets and a Settings button (on phones
-// that's the way to reach Settings). Friends see your widgets read-only.
-// Non-friends just see your name and an Add button.
+// that's the way to reach Settings). Friends see your badges, friends list,
+// and widgets read-only. Non-friends just see your name, "About me", and an
+// Add button.
+//
+// Admins testing with "View as a friend / a stranger" see their OWN profile
+// the way that person would (see AuthContext).
 import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
-import { Lock, Settings } from 'lucide-react'
+import { Eye, Lock, Settings } from 'lucide-react'
 import { supabase } from '../lib/supabase.js'
 import { escapeLike } from '../lib/friends.js'
 import { formatDate, toLocalDateString } from '../lib/dates.js'
+import { VIEW_AS_LABELS } from '../lib/constants.js'
 import { useAuth } from '../context/AuthContext.jsx'
 import Avatar from '../components/Avatar.jsx'
 import Spinner from '../components/Spinner.jsx'
 import FriendButton from '../components/friends/FriendButton.jsx'
 import WidgetBoard from '../components/widgets/WidgetBoard.jsx'
+import ProfileBadges from '../components/ProfileBadges.jsx'
+import FriendsOfList from '../components/FriendsOfList.jsx'
 
 export default function ProfilePage() {
   const { username } = useParams()
-  const { profile: me } = useAuth()
+  const { profile: me, viewAs } = useAuth()
   const isOwn = !username || username.toLowerCase() === me.username.toLowerCase()
 
   const [profile, setProfile] = useState(isOwn ? me : null)
   const [loading, setLoading] = useState(!isOwn)
   const [isFriend, setIsFriend] = useState(false)
   const [counts, setCounts] = useState(null) // { total, in_progress, finished }
+
+  // What this visit should look like. Normally: your own view, or friend /
+  // stranger depending on the real friendship. "View as" overrides it.
+  const viewingOwnAsOther = isOwn && (viewAs === 'friend' || viewAs === 'stranger')
+  const ownView = isOwn && !viewingOwnAsOther
+  const friendView = viewAs === 'stranger' ? false : viewAs === 'friend' ? true : isFriend
+  const canSeeDetails = ownView || (!isOwn && friendView) || (viewingOwnAsOther && viewAs === 'friend')
 
   useEffect(() => {
     if (isOwn) {
@@ -47,12 +61,12 @@ export default function ProfilePage() {
   const profileId = profile?.id
   useEffect(() => {
     setCounts(null)
-    if (!profileId || !(isOwn || isFriend)) return
+    if (!profileId || !canSeeDetails) return
     supabase.rpc('profile_project_counts', { target: profileId }).then(({ data }) => {
       const row = Array.isArray(data) ? data[0] : data
       if (row) setCounts({ total: Number(row.total), in_progress: Number(row.in_progress), finished: Number(row.finished) })
     })
-  }, [profileId, isOwn, isFriend])
+  }, [profileId, canSeeDetails])
 
   if (loading) return <Spinner />
   if (!profile) return <div className="card empty"><p>No one with the username @{username}.</p></div>
@@ -61,6 +75,10 @@ export default function ProfilePage() {
 
   return (
     <div className="stack">
+      {viewingOwnAsOther && (
+        <p className="view-as-note"><Eye size={14} /> This is how your profile looks to {VIEW_AS_LABELS[viewAs]}.</p>
+      )}
+
       <div className="card profile-header">
         <Avatar profile={profile} size={84} />
         <div className="profile-names">
@@ -75,16 +93,24 @@ export default function ProfilePage() {
           )}
         </div>
         <div className="profile-actions">
-          {isOwn
-            ? <Link to="/settings" className="btn btn-ghost"><Settings size={16} /> Settings</Link>
-            : <FriendButton me={me} other={profile} onChange={(f) => setIsFriend(f?.status === 'accepted')} />}
+          {ownView && <Link to="/settings" className="btn btn-ghost"><Settings size={16} /> Settings</Link>}
+          {!isOwn && <FriendButton me={me} other={profile} onChange={(f) => setIsFriend(f?.status === 'accepted')} />}
         </div>
+        {/* About me: everyone can see it (it helps people decide to add you) */}
+        {profile.bio && <p className="profile-bio">{profile.bio}</p>}
+        {ownView && !profile.bio && (
+          <p className="profile-bio muted">
+            <Link to="/settings">Add a few words about yourself</Link> so friends know it's you.
+          </p>
+        )}
       </div>
 
-      {isOwn ? (
-        <WidgetBoard userId={me.id} editable />
-      ) : isFriend ? (
-        <WidgetBoard userId={profile.id} editable={false} />
+      {canSeeDetails ? (
+        <>
+          <ProfileBadges userId={profile.id} isOwn={ownView} />
+          <FriendsOfList userId={profile.id} title={ownView ? 'Your friends' : 'Friends'} />
+          <WidgetBoard userId={profile.id} editable={ownView} focusProjectId={profile.focus_project_id} />
+        </>
       ) : (
         <div className="card empty">
           <Lock size={24} />

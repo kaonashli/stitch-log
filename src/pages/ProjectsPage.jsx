@@ -7,6 +7,7 @@ import { supabase } from '../lib/supabase.js'
 import { getPhotoUrls } from '../lib/images.js'
 import { formatDate } from '../lib/dates.js'
 import { STATUSES } from '../lib/constants.js'
+import { startDateLabel } from '../lib/projectStatus.js'
 import { useAuth } from '../context/AuthContext.jsx'
 import StatusBadge from '../components/StatusBadge.jsx'
 import ProjectIcon from '../components/ProjectIcon.jsx'
@@ -105,7 +106,8 @@ export default function ProjectsPage() {
                 <StatusBadge status={project.status} />
               </div>
               <small className="muted">
-                {project.craft_types?.name} · Started {formatDate(project.start_date)}
+                {project.craft_types?.name}
+                {project.start_date && ` · ${startDateLabel(project.status)} ${formatDate(project.start_date)}`}
                 {project.finish_date && ` · Finished ${formatDate(project.finish_date)}`}
               </small>
             </div>

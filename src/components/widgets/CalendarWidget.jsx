@@ -16,7 +16,24 @@ const RANGES = [
   { value: '3m', label: '3 months', months: 3 },
   { value: '6m', label: '6 months', months: 6 },
   { value: '12m', label: '1 year', months: 12 },
+  { value: '24m', label: '2 years', months: 24 },
+  { value: '60m', label: '5 years', months: 60 },
 ]
+
+// Long ranges would be crowded with a label for every month, so label
+// every 3rd month (2 years) or only January (5 years)
+function monthLabelStep(months) {
+  if (months <= 12) return 1
+  if (months <= 24) return 3
+  return 12
+}
+
+// How many days a project spent paused (each pause is a "Paused" stretch in its history)
+function pausedDays(segments) {
+  return segments
+    .filter((s) => s.status === 'paused')
+    .reduce((sum, s) => sum + daysInclusive(s.from, s.to), 0)
+}
 
 const done = (status) => status === 'finished' || status === 'frogged'
 
@@ -95,16 +112,22 @@ export default function CalendarWidget({ projects, settings, editable, onSetting
   // Position of a day across the timeline, as a percentage of the width
   const position = (day) => ((daysInclusive(rangeStart, day) - 1) / totalDays) * 100
 
-  // Month labels along the top
+  // Month labels along the top (with the year on long ranges)
+  const step = monthLabelStep(range.months)
   const months = []
   for (let i = 0; i < range.months; i++) {
     const d = new Date(startDate.getFullYear(), startDate.getMonth() + i, 1)
-    months.push({ day: toLocalDateString(d), label: d.toLocaleDateString(undefined, { month: 'short' }) })
+    const labelled = step === 12 ? d.getMonth() === 0 : i % step === 0
+    const label = range.months > 12
+      ? d.toLocaleDateString(undefined, step === 12 ? { year: 'numeric' } : { month: 'short', year: '2-digit' })
+      : d.toLocaleDateString(undefined, { month: 'short' })
+    months.push({ day: toLocalDateString(d), label, labelled })
   }
 
-  // Projects that overlap the visible range, oldest start first
+  // Projects that overlap the visible range, oldest start first.
+  // (Ideas without a planned start date have nothing to show yet.)
   const rows = projects
-    .filter((p) => p.start_date <= today && lastDay(p, today) >= rangeStart)
+    .filter((p) => p.start_date && p.start_date <= today && lastDay(p, today) >= rangeStart)
     .sort((a, b) => a.start_date.localeCompare(b.start_date))
     .map((p) => ({ project: p, segments: segmentsFor(p, rangeStart, today), end: lastDay(p, today) }))
 
@@ -135,7 +158,7 @@ export default function CalendarWidget({ projects, settings, editable, onSetting
             <span className="timeline-label-spacer" />
             <div className="timeline-axis-track">
               {/* (month names too close to the right edge would bump into "Today") */}
-              {months.filter((m) => position(m.day) < 88).map((m) => (
+              {months.filter((m) => m.labelled && position(m.day) < 88).map((m) => (
                 <span key={m.day} className="timeline-month" style={{ left: `${position(m.day)}%` }}>{m.label}</span>
               ))}
               <span className="timeline-today">Today</span>
@@ -146,6 +169,7 @@ export default function CalendarWidget({ projects, settings, editable, onSetting
             const isDone = done(project.status)
             const days = daysInclusive(project.start_date, end)
             const startsBefore = project.start_date < rangeStart // started before what's shown
+            const paused = pausedDays(segments)
             return (
               <Link key={project.id} to={`/projects/${project.id}`} className="timeline-row">
                 <span className="timeline-label">
@@ -154,17 +178,18 @@ export default function CalendarWidget({ projects, settings, editable, onSetting
                     <strong>{project.title}</strong>
                     <small className="muted">
                       {shortDate(project.start_date)} {isDone ? `to ${shortDate(end)}` : 'to now'} · {days} day{days === 1 ? '' : 's'}
+                      {paused > 0 && <span className="timeline-paused-note"> · paused {paused} day{paused === 1 ? '' : 's'}</span>}
                     </small>
                   </span>
                 </span>
                 <span className="timeline-track">
-                  {months.map((m) => (
+                  {months.filter((m) => m.labelled).map((m) => (
                     <span key={m.day} className="timeline-gridline" style={{ left: `${position(m.day)}%` }} />
                   ))}
                   {segments.map((s, i) => (
                     <span
                       key={s.from}
-                      className={`timeline-seg status-bg-${s.status} ${i === 0 && !startsBefore ? 'timeline-seg-first' : ''} ${i === segments.length - 1 ? 'timeline-seg-last' : ''}`}
+                      className={`timeline-seg status-bg-${s.status} ${s.status === 'paused' ? 'timeline-seg-paused' : ''} ${i === 0 && !startsBefore ? 'timeline-seg-first' : ''} ${i === segments.length - 1 ? 'timeline-seg-last' : ''}`}
                       style={{ left: `${position(s.from)}%`, width: `${Math.max(position(addDays(s.to, 1)) - position(s.from), 0.8)}%` }}
                       title={`${statusLabel(s.status)}: ${formatDate(s.from)} to ${formatDate(s.to)}`}
                     />
@@ -188,8 +213,9 @@ export default function CalendarWidget({ projects, settings, editable, onSetting
       )}
 
       <div className="cal-legend">
+        {/* Paused stretches are striped, so the breaks stand out */}
         {STATUSES.map((s) => (
-          <span key={s.value}><span className={`timeline-legend-dot status-bg-${s.value}`} />{s.label}</span>
+          <span key={s.value}><span className={`timeline-legend-dot status-bg-${s.value} ${s.value === 'paused' ? 'timeline-seg-paused' : ''}`} />{s.label}</span>
         ))}
       </div>
     </div>

@@ -1,11 +1,18 @@
 // Add a new project (/projects/new) or edit one (/projects/:id/edit).
 import { useEffect, useState } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { Lock, Users } from 'lucide-react'
 import { supabase } from '../lib/supabase.js'
 import { deleteProjectPhotoFiles, getPhotoUrls, uploadProjectPhoto } from '../lib/images.js'
 import { todayLocal } from '../lib/dates.js'
 import { STATUSES, withCost } from '../lib/constants.js'
+import { statusChangeFields } from '../lib/projectStatus.js'
+import {
+  emptyReflections, hasWrapUp, loadLinks, loadRecipients, loadReflections, saveLinks, saveRecipients, saveReflections,
+} from '../lib/projectExtras.js'
+import RecipientInput from '../components/RecipientInput.jsx'
+import LinksEditor from '../components/LinksEditor.jsx'
+import WrapUpEditor from '../components/WrapUpEditor.jsx'
 import { DEFAULT_COLOR, DEFAULT_ICON, PROJECT_COLORS, PROJECT_ICONS } from '../lib/projectLooks.js'
 import IconColorPicker from '../components/IconColorPicker.jsx'
 import { useAuth } from '../context/AuthContext.jsx'
@@ -19,10 +26,8 @@ const EMPTY_FORM = {
   title: '',
   craft_type_id: '',
   status: 'idea',
-  start_date: todayLocal(),
+  start_date: '', // ideas only have a planned start date, and it's optional
   finish_date: '',
-  made_for: '',
-  pattern_url: '',
   icon: DEFAULT_ICON,
   color: DEFAULT_COLOR,
   description: '',
@@ -34,12 +39,19 @@ export default function ProjectFormPage() {
   const { id } = useParams() // undefined when adding a new project
   const isEdit = Boolean(id)
   const navigate = useNavigate()
-  const { user } = useAuth()
+  const { user, profile } = useAuth()
+  // /projects/new?status=paused starts the new project in that status
+  const [searchParams] = useSearchParams()
+  const wantedStatus = searchParams.get('status')
+  const presetStatus = STATUSES.some((s) => s.value === wantedStatus) ? wantedStatus : null
 
   const [form, setForm] = useState(EMPTY_FORM)
   const [craftTypes, setCraftTypes] = useState([])
   const [materials, setMaterials] = useState([])
   const [notes, setNotes] = useState('') // private notes (saved in their own table)
+  const [recipients, setRecipients] = useState([]) // "Who it's for" chips
+  const [links, setLinks] = useState([]) // [{ key, url, title, is_public }]
+  const [reflections, setReflections] = useState(emptyReflections) // wrap-up answers
   const [existingPhotos, setExistingPhotos] = useState([])
   const [removedPhotos, setRemovedPhotos] = useState([])
   const [addedPhotos, setAddedPhotos] = useState([])
@@ -57,7 +69,15 @@ export default function ProjectFormPage() {
       setCraftTypes(typesResult.data ?? [])
 
       if (!isEdit) {
-        setForm({ ...EMPTY_FORM, start_date: todayLocal(), craft_type_id: typesResult.data?.[0]?.id ?? '' })
+        const status = presetStatus ?? EMPTY_FORM.status
+        setForm({
+          ...EMPTY_FORM,
+          status,
+          // Ideas start without a date; anything else started today
+          start_date: status === 'idea' ? '' : todayLocal(),
+          finish_date: status === 'finished' ? todayLocal() : '',
+          craft_type_id: typesResult.data?.[0]?.id ?? '',
+        })
         setLoading(false)
         return
       }
@@ -78,10 +98,8 @@ export default function ProjectFormPage() {
         title: project.title,
         craft_type_id: project.craft_type_id,
         status: project.status,
-        start_date: project.start_date,
+        start_date: project.start_date ?? '',
         finish_date: project.finish_date ?? '',
-        made_for: project.made_for ?? '',
-        pattern_url: project.pattern_url ?? '',
         icon: project.icon ?? DEFAULT_ICON,
         color: project.color ?? DEFAULT_COLOR,
         description: project.description ?? '',
@@ -93,6 +111,14 @@ export default function ProjectFormPage() {
       const notesResult = await supabase.from('project_notes').select('notes').eq('project_id', id).maybeSingle()
       setNotes(notesResult.data?.notes ?? '')
 
+      // Who it's for, links, and wrap-up answers (each in its own table)
+      const [recipientList, linkList, answers] = await Promise.all([
+        loadRecipients(id), loadLinks(id), loadReflections(id),
+      ])
+      setRecipients(recipientList.map((r) => (r.user_id ? { user_id: r.user_id, person: r.person } : { name: r.name })))
+      setLinks(linkList.map((l) => ({ key: l.id, url: l.url, title: l.title ?? '', is_public: l.is_public })))
+      setReflections({ ...emptyReflections(), ...answers })
+
       // Database NULLs become '' so the inputs are "controlled" by React
       setMaterials(project.project_materials
         .map(withCost) // private cost from the material_costs table
@@ -101,7 +127,9 @@ export default function ProjectFormPage() {
           key: m.id,
           material_type: m.material_type,
           status: m.status ?? 'owned',
-          quantity: m.quantity ?? 1,
+          quantity: m.quantity ?? '',
+          unsure: m.quantity === null, // amount "Unsure"
+          fibers: m.fibers ?? [],
           cost: m.cost ?? '',
           brand: m.brand ?? '', color: m.color ?? '', weight: m.weight ?? '',
           yardage: m.yardage ?? '', gauge: m.gauge ?? '', size: m.size ?? '', notes: m.notes ?? '',
@@ -114,11 +142,26 @@ export default function ProjectFormPage() {
       setLoading(false)
     }
     load()
-  }, [id, isEdit, user.id])
+  }, [id, isEdit, user.id]) // eslint-disable-line react-hooks/exhaustive-deps
 
   function handleChange(event) {
     const { name, value } = event.target
     setForm({ ...form, [name]: value })
+  }
+
+  // Changing the status also fills in dates: leaving Idea = started today,
+  // Finished = finished today (you can still change both dates afterwards)
+  function handleStatusChange(event) {
+    const changes = statusChangeFields(
+      { status: form.status, start_date: form.start_date || null, finish_date: form.finish_date || null },
+      event.target.value,
+    )
+    setForm({
+      ...form,
+      status: changes.status,
+      start_date: changes.start_date ?? form.start_date,
+      finish_date: 'finish_date' in changes ? (changes.finish_date ?? '') : form.finish_date,
+    })
   }
 
   function validate() {
@@ -126,10 +169,12 @@ export default function ProjectFormPage() {
     if (!PROJECT_ICONS[form.icon]) return 'Please choose an icon.'
     if (!PROJECT_COLORS.some((c) => c.name === form.color)) return 'Please choose a color.'
     if (!form.craft_type_id) return 'Please choose a craft type.'
-    if (!form.start_date) return 'Please choose a start date.'
-    if (form.finish_date && form.finish_date < form.start_date) return 'Finish date cannot be before the start date.'
-    if (form.pattern_url && !/^https?:\/\//i.test(form.pattern_url.trim())) {
-      return 'Pattern link must start with http:// or https://'
+    // Ideas only have an optional planned start date; everything else needs one
+    if (form.status !== 'idea' && !form.start_date) return 'Please choose a start date.'
+    if (form.finish_date && form.start_date && form.finish_date < form.start_date) return 'Finish date cannot be before the start date.'
+    for (const link of links) {
+      if (link.url.trim() && !/^https?:\/\//i.test(link.url.trim())) return 'Links must start with http:// or https://'
+      if (!link.url.trim() && link.title.trim()) return `Please add the address for the link "${link.title.trim()}", or remove it.`
     }
     // Material costs are optional, but can't be negative
     for (const m of materials) {
@@ -150,10 +195,8 @@ export default function ProjectFormPage() {
       title: form.title.trim(),
       craft_type_id: Number(form.craft_type_id),
       status: form.status,
-      start_date: form.start_date,
+      start_date: form.start_date || null,
       finish_date: form.finish_date || null,
-      made_for: form.made_for.trim() || null,
-      pattern_url: form.pattern_url.trim() || null,
       icon: form.icon,
       color: form.color,
       description: form.description.trim() || null,
@@ -189,6 +232,11 @@ export default function ProjectFormPage() {
           if (costError) throw costError
         }
       }
+
+      // 2a. Who it's for, links, and (for finished / frogged projects) the wrap-up answers
+      await saveRecipients(projectId, recipients)
+      await saveLinks(projectId, links)
+      if (hasWrapUp(form.status)) await saveReflections(projectId, reflections)
 
       // 2b. Private notes: "upsert" = insert the row, or update it if it already exists
       if (isEdit || notes.trim()) {
@@ -313,32 +361,47 @@ export default function ProjectFormPage() {
             </label>
             <label className="field">
               <span>Status <span className="required">*</span></span>
-              <select name="status" required value={form.status} onChange={handleChange}>
+              <select name="status" required value={form.status} onChange={handleStatusChange}>
                 {STATUSES.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
               </select>
             </label>
             <label className="field">
-              <span>Start date <span className="required">*</span></span>
-              <input type="date" name="start_date" required value={form.start_date} onChange={handleChange} />
+              {/* Ideas have a planned start date (optional); once work starts it's the real one */}
+              {form.status === 'idea'
+                ? <span>Planned start date</span>
+                : <span>Start date <span className="required">*</span></span>}
+              <input type="date" name="start_date" required={form.status !== 'idea'} value={form.start_date} onChange={handleChange} />
             </label>
             <label className="field">
               <span>Finish date</span>
-              <input type="date" name="finish_date" min={form.start_date} value={form.finish_date} onChange={handleChange} />
-            </label>
-            <label className="field">
-              <span>Who it's for</span>
-              <input name="made_for" maxLength={100} value={form.made_for} onChange={handleChange} placeholder="e.g. Me, Grandma" />
-            </label>
-            <label className="field">
-              <span>Pattern link</span>
-              <input type="url" name="pattern_url" value={form.pattern_url} onChange={handleChange} placeholder="https://..." />
+              <input type="date" name="finish_date" min={form.start_date || undefined} value={form.finish_date} onChange={handleChange} />
             </label>
             <div className="field">
               <span>Difficulty</span>
               <DifficultyPicker value={form.difficulty} onChange={(difficulty) => setForm({ ...form, difficulty })} />
             </div>
           </div>
+
+          <div className="field">
+            <span>Who it's for</span>
+            <RecipientInput value={recipients} onChange={setRecipients} me={profile} />
+            <small className="field-hint">Tag yourself or a friend, or type any name and press Enter.</small>
+          </div>
         </section>
+
+        <section className="card stack-sm">
+          <h2>Links</h2>
+          <LinksEditor links={links} onChange={setLinks} />
+        </section>
+
+        {/* Wrap-up questions: only for finished and frogged projects */}
+        {hasWrapUp(form.status) && (
+          <section className="card stack">
+            <h2>Wrap-up</h2>
+            <small className="muted">How did it go? Answer what you like. Each answer can be for friends or just for you.</small>
+            <WrapUpEditor value={reflections} onChange={setReflections} me={profile} />
+          </section>
+        )}
 
         <section className="card stack">
           <h2>Materials</h2>

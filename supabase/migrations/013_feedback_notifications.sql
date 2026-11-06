@@ -1,3 +1,4 @@
+-- RUN IN SUPABASE: yes (exact date unknown, on or before 2026-11-05)
 -- =====================================================================
 -- Migration 013: notify admins about new bug reports / change requests
 --

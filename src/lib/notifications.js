@@ -54,6 +54,19 @@ export function describeNotification(n) {
         text: `${name} mentioned you in a comment on ${project}: "${snippet(n.comment?.body)}"`,
         link: `/projects/${n.project_id}#comments`,
       }
+    case 'reply':
+      return {
+        title: 'New reply',
+        text: `${name} replied to your comment on ${project}: "${snippet(n.comment?.body)}"`,
+        link: `/projects/${n.project_id}#comments`,
+      }
+    case 'new_user':
+      // For admins: someone just signed up
+      return {
+        title: 'New member',
+        text: `${name} (@${n.actor?.username ?? ''}) just joined Stitch Log.`,
+        link: n.actor?.username ? `/u/${n.actor.username}` : '/admin?tab=users',
+      }
     case 'friend_request':
       return { title: 'New friend request', text: `${name} sent you a friend request.`, link: '/friends' }
     case 'feedback': {

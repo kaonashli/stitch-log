@@ -20,7 +20,8 @@ export function statusLabel(value) {
 
 // Every possible material field and how to show it in the form.
 export const MATERIAL_FIELDS = {
-  // How many (whole number, at least 1). Stored as project_materials.quantity.
+  // How many (whole number, at least 1), or "Unsure" (stored as NULL).
+  // Stored as project_materials.quantity.
   quantity: { label: 'Amount', type: 'number', min: 1, step: 1 },
   // Price for ONE; the line's cost is cost x amount. Optional.
   cost: { label: 'Cost each', type: 'number', min: 0, step: 0.01, placeholder: '0.00' },
@@ -30,6 +31,8 @@ export const MATERIAL_FIELDS = {
   yardage: { label: 'Yardage', type: 'number' },
   gauge: { label: 'Gauge', placeholder: 'e.g. 22 sts x 30 rows = 10 cm' },
   size: { label: 'Size', placeholder: 'e.g. 4.0 mm, US 6' },
+  // Picked from FIBERS (several for a blend). Stored as project_materials.fibers (a list).
+  fibers: { label: 'Fiber' },
   notes: { label: 'Notes' },
 }
 
@@ -37,9 +40,9 @@ export const MATERIAL_FIELDS = {
 // on project_materials.material_type.
 // Every type starts with Amount and ends with Cost each + Notes.
 export const MATERIAL_TYPES = {
-  yarn: { label: 'Yarn', fields: ['quantity', 'brand', 'color', 'weight', 'yardage', 'gauge', 'cost', 'notes'] },
+  yarn: { label: 'Yarn', fields: ['quantity', 'brand', 'color', 'weight', 'yardage', 'gauge', 'fibers', 'cost', 'notes'] },
   needle: { label: 'Needle / hook', fields: ['quantity', 'size', 'cost', 'notes'] },
-  string: { label: 'String', fields: ['quantity', 'cost', 'notes'] },
+  string: { label: 'String', fields: ['quantity', 'fibers', 'cost', 'notes'] },
   stuffing: { label: 'Stuffing', fields: ['quantity', 'cost', 'notes'] },
   buttons: { label: 'Buttons', fields: ['quantity', 'color', 'cost', 'notes'] },
 }
@@ -53,7 +56,8 @@ export function withCost(material) {
   return { ...material, cost: row?.cost ?? null }
 }
 
-// Cost of one material line (cost each x amount), or 0 if no cost was entered
+// Cost of one material line (cost each x amount), or 0 if no cost was entered.
+// An "Unsure" amount counts as 1.
 export function materialLineCost(material) {
   const cost = Number(material.cost)
   if (material.cost === null || material.cost === '' || Number.isNaN(cost)) return 0
@@ -89,8 +93,9 @@ export function difficultyLabel(value) {
 }
 
 // Money display. Change CURRENCY to show another currency symbol (e.g. 'EUR', 'CAD').
+// "narrowSymbol" shows just "$" (some browsers would otherwise show "US$").
 export const CURRENCY = 'USD'
-const moneyFormat = new Intl.NumberFormat(undefined, { style: 'currency', currency: CURRENCY })
+const moneyFormat = new Intl.NumberFormat(undefined, { style: 'currency', currency: CURRENCY, currencyDisplay: 'narrowSymbol' })
 export function formatMoney(amount) {
   return moneyFormat.format(Number(amount) || 0)
 }
@@ -101,4 +106,26 @@ export const MAX_PHOTOS = 10
 export const WIDGET_TYPES = {
   kanban: { label: 'Project board', description: 'Your projects in columns by status' },
   calendar: { label: 'Project timeline', description: 'When each project started and finished' },
+  gallery: { label: 'Project gallery', description: 'Your favorite projects in a photo grid' },
+  focus: { label: 'Focus project', description: 'Show off the project you starred' },
+  made_for: { label: 'Made for', description: 'How many projects you made for each person' },
+  fibers: { label: 'Favorite fibers', description: 'The fibers you use the most' },
+}
+
+// Admin "view as" modes (see AuthContext)
+export const VIEW_AS_LABELS = {
+  user: 'a regular user',
+  friend: 'a friend',
+  stranger: 'a stranger',
+}
+
+// Fibers for yarn and string. You can pick several for a blend.
+export const FIBERS = [
+  'Acrylic', 'Alpaca', 'Angora', 'Bamboo', 'Cashmere', 'Cotton', 'Hemp', 'Linen', 'Merino',
+  'Mohair', 'Nylon', 'Polyester', 'Silk', 'Wool', 'Yak', 'Other',
+]
+
+// "Who it's for" written as a name: these mean yourself
+export function isSelfName(name) {
+  return ['me', 'myself'].includes(String(name ?? '').trim().toLowerCase())
 }

@@ -21,6 +21,8 @@ function PersonRow({ person, children }) {
         <span className="person-names">
           <strong>{person.display_name}</strong>
           <small className="muted">@{person.username}</small>
+          {/* Their "About me", so you know who you're adding */}
+          {person.bio && <small className="person-bio">{person.bio}</small>}
         </span>
       </Link>
       <span className="row">{children}</span>

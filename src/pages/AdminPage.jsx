@@ -9,7 +9,7 @@
 // the database RLS policies, which check has_permission() on every request.
 import { useEffect, useState } from 'react'
 import { Navigate, useSearchParams } from 'react-router-dom'
-import { Activity, Inbox, Layers, Plus, Trash2, UserPlus, Users } from 'lucide-react'
+import { Activity, Eye, Inbox, Layers, Plus, Shield, ShieldOff, Trash2, UserPlus, Users } from 'lucide-react'
 import { supabase } from '../lib/supabase.js'
 import { formatDate, timeAgo, toLocalDateString } from '../lib/dates.js'
 import { useAuth } from '../context/AuthContext.jsx'
@@ -43,7 +43,7 @@ function StatTile({ icon: Icon, label, value, hint }) {
 }
 
 export default function AdminPage() {
-  const { user, hasPermission, refreshProfile } = useAuth()
+  const { user, hasPermission, refreshProfile, setViewAs } = useAuth()
   // ?tab=feedback in the address opens that tab (used by feedback notifications)
   const [searchParams] = useSearchParams()
   const [tab, setTab] = useState(() => {
@@ -133,6 +133,17 @@ export default function AdminPage() {
     }
   }
 
+  // The Make admin / Remove admin button (same as ticking the "admin" box, with a confirm)
+  const adminRole = roles.find((r) => r.name === 'admin')
+  function toggleAdmin(u) {
+    if (!adminRole) return
+    const isAdminNow = hasRole(u.id, adminRole.id)
+    const question = isAdminNow
+      ? `Remove the admin role from ${u.display_name}? They will lose access to the admin area.`
+      : `Make ${u.display_name} an admin? They will get every admin permission.`
+    if (window.confirm(question)) toggleUserRole(u.id, adminRole)
+  }
+
   // Everything a user is allowed to do, through all their roles
   function permissionsOf(userId) {
     const roleIds = userRoles.filter((ur) => ur.user_id === userId).map((ur) => ur.role_id)
@@ -210,6 +221,20 @@ export default function AdminPage() {
             )}
           </div>
 
+          {/* Testing: see the app the way other people see it */}
+          <div className="card stack-sm">
+            <h2 className="row"><Eye size={18} /> View the app as...</h2>
+            <p className="muted small">
+              For testing. Admin features are hidden while you do this, and your own profile and
+              projects look the way that person would see them. Tap Stop in the bar at the top to go back.
+            </p>
+            <div className="row wrap">
+              <button className="btn btn-sm btn-ghost" onClick={() => setViewAs('stranger')}>A stranger</button>
+              <button className="btn btn-sm btn-ghost" onClick={() => setViewAs('friend')}>A friend</button>
+              <button className="btn btn-sm btn-ghost" onClick={() => setViewAs('user')}>A regular user (not admin)</button>
+            </div>
+          </div>
+
           <div className="card stack-sm">
             <h2>Recently active</h2>
             {recentlyActive.length === 0 && <p className="muted">No activity recorded yet.</p>}
@@ -258,6 +283,13 @@ export default function AdminPage() {
                           <small className="muted" title={perms.map((p) => p.key).join(', ')}>
                             {perms.length ? `${perms.length} permission${perms.length === 1 ? '' : 's'}` : 'No extra permissions'}
                           </small>
+                          {canManageRoles && adminRole && u.id !== user.id && (
+                            <button className="btn btn-xs btn-ghost admin-toggle" onClick={() => toggleAdmin(u)}>
+                              {hasRole(u.id, adminRole.id)
+                                ? <><ShieldOff size={12} /> Remove admin</>
+                                : <><Shield size={12} /> Make admin</>}
+                            </button>
+                          )}
                         </span>
                       </span>
                     </td>

@@ -12,6 +12,8 @@ export default function AuthCard({ title, subtitle, children }) {
           <Logo size={40} />
           <span>Stitch Log</span>
         </div>
+        {/* One line about what the app is, for people who are new here */}
+        <p className="auth-tagline">A journal for your knitting and crochet projects, to share with friends.</p>
         <h1>{title}</h1>
         {subtitle && <p className="muted">{subtitle}</p>}
         {children}

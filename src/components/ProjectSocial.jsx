@@ -6,16 +6,14 @@
 // The database tells the owner about new hearts and comments (notifications),
 // and removes those notifications if the heart or comment is taken back.
 import { useEffect, useState } from 'react'
-import { Link } from 'react-router-dom'
-import { Heart, MessageCircle, Send, Trash2 } from 'lucide-react'
+import { Heart, MessageCircle, Send } from 'lucide-react'
 import { addComment, addHeart, checkIsFriend, deleteComment, extractMentions, loadComments, loadHearts, removeHeart } from '../lib/social.js'
 import MentionInput from './MentionInput.jsx'
-import CommentText from './CommentText.jsx'
-import { timeAgo } from '../lib/dates.js'
-import Avatar from './Avatar.jsx'
+import CommentThread from './CommentThread.jsx'
 
-export default function ProjectSocial({ project, me }) {
-  const isOwner = project.user_id === me.id
+// viewingAsOther = an admin is viewing their own project as a friend would (read only)
+export default function ProjectSocial({ project, me, viewingAsOther = false }) {
+  const isOwner = project.user_id === me.id && !viewingAsOther
   const [isFriend, setIsFriend] = useState(false)
   const [hearts, setHearts] = useState([])
   const [comments, setComments] = useState([])
@@ -84,11 +82,26 @@ export default function ProjectSocial({ project, me }) {
     setBusy(false)
   }
 
+  // Reply to a comment (CommentThread calls this). Returns true when it worked.
+  async function handleReply(parent, body, taggablePeople) {
+    setError('')
+    try {
+      await addComment(project.id, body, extractMentions(body, taggablePeople), parent.id)
+      setComments(await loadComments(project.id))
+      return true
+    } catch (err) {
+      setError(err.message)
+      return false
+    }
+  }
+
   async function handleDelete(comment) {
-    if (!window.confirm('Delete this comment?')) return
+    const hasReplies = comments.some((c) => c.parent_id === comment.id)
+    if (!window.confirm(hasReplies ? 'Delete this comment and its replies?' : 'Delete this comment?')) return
     try {
       await deleteComment(comment.id)
-      setComments(comments.filter((c) => c.id !== comment.id))
+      // its replies are deleted too, so reload the list
+      setComments(await loadComments(project.id))
     } catch (err) {
       setError(err.message)
     }
@@ -128,25 +141,15 @@ export default function ProjectSocial({ project, me }) {
       {error && <small className="text-error">{error}</small>}
       {comments.length === 0 && <p className="muted">No comments yet.</p>}
 
-      <ul className="comment-list">
-        {comments.map((c) => (
-          <li key={c.id} className="comment">
-            <Link to={`/u/${c.author?.username}`}><Avatar profile={c.author} size={34} /></Link>
-            <div className="comment-body">
-              <div className="comment-meta">
-                <Link to={`/u/${c.author?.username}`} className="strong-link">{c.author?.display_name}</Link>
-                <small className="muted">{timeAgo(c.created_at)}</small>
-                {(c.user_id === me.id || isOwner) && (
-                  <button className="icon-btn comment-delete" onClick={() => handleDelete(c)} aria-label="Delete comment" title="Delete comment">
-                    <Trash2 size={14} />
-                  </button>
-                )}
-              </div>
-              <CommentText comment={c} />
-            </div>
-          </li>
-        ))}
-      </ul>
+      <CommentThread
+        comments={comments}
+        me={me}
+        projectId={project.id}
+        canReply={canComment}
+        canDelete={(c) => !viewingAsOther && (c.user_id === me.id || isOwner)}
+        onDelete={handleDelete}
+        onReply={handleReply}
+      />
 
       {canComment && (
         <form onSubmit={handleComment} className="comment-form">

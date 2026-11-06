@@ -85,7 +85,7 @@ The live site is hosted on [Netlify](https://www.netlify.com/), built from the `
 ## Project structure
 
 ```
-supabase/          SQL: schema, admin helper, test data
+supabase/          SQL: schema, admin helper, test data, feedback task list
   migrations/      changes for databases created from an older schema.sql
 public/            favicon, app icons, web app manifest
 src/

@@ -29,7 +29,10 @@ const COPIED_STYLES = [
 ]
 
 export default function MentionInput({
-  projectId, value, onChange, onCandidates, multiline = false, className = '', ...inputProps
+  projectId, value, onChange, onCandidates, multiline = false, className = '',
+  loadCandidates = null, // optional: your own way to get the people (default: who can be tagged on projectId)
+  emptyText = "No one to tag here. You can tag friends who are also friends with this project's owner.",
+  ...inputProps
 }) {
   const fieldRef = useRef(null)
   const backdropRef = useRef(null)
@@ -54,7 +57,7 @@ export default function MentionInput({
 
   async function ensureCandidates() {
     if (candidates !== null) return
-    const list = await loadMentionCandidates(projectId)
+    const list = loadCandidates ? await loadCandidates() : await loadMentionCandidates(projectId)
     setCandidates(list)
     onCandidates?.(list)
   }
@@ -179,7 +182,7 @@ export default function MentionInput({
           {suggestions.length === 0 ? (
             <div className="mention-empty">
               {candidates.length === 0
-                ? "No one to tag here. You can tag friends who are also friends with this project's owner."
+                ? emptyText
                 : 'No matching friends.'}
             </div>
           ) : (

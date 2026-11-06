@@ -23,6 +23,8 @@ function describe(material) {
     material.yardage ? `${material.yardage} yds` : null,
     material.notes,
   ].filter(Boolean)
+  // An "Unsure" amount (NULL) is noted at the end
+  if (material.quantity === null) parts.push('amount unsure')
   const amount = material.quantity > 1 ? `${material.quantity} × ` : ''
   return amount + (parts.length ? `${type}: ${parts.join(', ')}` : type)
 }

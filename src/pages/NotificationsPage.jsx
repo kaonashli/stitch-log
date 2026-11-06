@@ -5,7 +5,7 @@
 // a comment, it disappears from this list too (the database removes it).
 import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { AtSign, Bell, Bug, Check, Heart, MessageCircle, UserCheck, UserPlus } from 'lucide-react'
+import { AtSign, Bell, Bug, Check, Heart, MessageCircle, Reply, Sparkles, UserCheck, UserPlus } from 'lucide-react'
 import { describeNotification, loadNotifications } from '../lib/notifications.js'
 import { acceptFriendRequest, removeFriendship } from '../lib/friends.js'
 import { timeAgo } from '../lib/dates.js'
@@ -23,6 +23,8 @@ const TYPE_ICONS = {
   friend_accepted: UserCheck,
   feedback: Bug,
   mention: AtSign,
+  reply: Reply,
+  new_user: Sparkles,
 }
 
 export default function NotificationsPage() {

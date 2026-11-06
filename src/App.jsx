@@ -9,6 +9,7 @@ import HomePage from './pages/HomePage.jsx'
 import ProjectsPage from './pages/ProjectsPage.jsx'
 import ProjectFormPage from './pages/ProjectFormPage.jsx'
 import ProjectDetailPage from './pages/ProjectDetailPage.jsx'
+import StatusProjectsPage from './pages/StatusProjectsPage.jsx'
 import ProfilePage from './pages/ProfilePage.jsx'
 import FriendsPage from './pages/FriendsPage.jsx'
 import NotificationsPage from './pages/NotificationsPage.jsx'
@@ -61,6 +62,7 @@ export default function App() {
           <Route path="/projects/new" element={<ProjectFormPage />} />
           <Route path="/projects/:id" element={<ProjectDetailPage />} />
           <Route path="/projects/:id/edit" element={<ProjectFormPage />} />
+          <Route path="/projects/status/:status" element={<StatusProjectsPage />} />
           <Route path="/friends" element={<FriendsPage />} />
           <Route path="/notifications" element={<NotificationsPage />} />
           <Route path="/profile" element={<ProfilePage />} />

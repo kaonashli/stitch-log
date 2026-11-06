@@ -2,7 +2,7 @@
 // Row Level Security makes sure you only ever see/change your own friendships.
 import { supabase } from './supabase.js'
 
-const PROFILE_FIELDS = 'id, username, display_name, avatar_path'
+const PROFILE_FIELDS = 'id, username, display_name, avatar_path, bio'
 
 // In a LIKE/ILIKE search, % and _ are wildcards. Escape them so searching
 // for "a_b" finds exactly "a_b".
