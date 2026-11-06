@@ -1,12 +1,16 @@
 // Add a new project (/projects/new) or edit one (/projects/:id/edit).
 import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
+import { Lock, Users } from 'lucide-react'
 import { supabase } from '../lib/supabase.js'
 import { deleteProjectPhotoFiles, getPhotoUrls, uploadProjectPhoto } from '../lib/images.js'
 import { todayLocal } from '../lib/dates.js'
-import { STATUSES } from '../lib/constants.js'
+import { STATUSES, withCost } from '../lib/constants.js'
+import { DEFAULT_COLOR, DEFAULT_ICON, PROJECT_COLORS, PROJECT_ICONS } from '../lib/projectLooks.js'
+import IconColorPicker from '../components/IconColorPicker.jsx'
 import { useAuth } from '../context/AuthContext.jsx'
-import MaterialsEditor, { materialsToRows } from '../components/MaterialsEditor.jsx'
+import MaterialsEditor, { materialCostsToRows, materialsToRows } from '../components/MaterialsEditor.jsx'
+import DifficultyPicker from '../components/DifficultyPicker.jsx'
 import PhotoManager from '../components/PhotoManager.jsx'
 import ErrorMessage from '../components/ErrorMessage.jsx'
 import Spinner from '../components/Spinner.jsx'
@@ -19,6 +23,10 @@ const EMPTY_FORM = {
   finish_date: '',
   made_for: '',
   pattern_url: '',
+  icon: DEFAULT_ICON,
+  color: DEFAULT_COLOR,
+  description: '',
+  difficulty: null, // 1-5 or null (not rated)
 }
 
 export default function ProjectFormPage() {
@@ -30,6 +38,7 @@ export default function ProjectFormPage() {
   const [form, setForm] = useState(EMPTY_FORM)
   const [craftTypes, setCraftTypes] = useState([])
   const [materials, setMaterials] = useState([])
+  const [notes, setNotes] = useState('') // private notes (saved in their own table)
   const [existingPhotos, setExistingPhotos] = useState([])
   const [removedPhotos, setRemovedPhotos] = useState([])
   const [addedPhotos, setAddedPhotos] = useState([])
@@ -51,7 +60,7 @@ export default function ProjectFormPage() {
 
       const { data: project, error } = await supabase
         .from('projects')
-        .select('*, project_materials(*), project_photos(id, storage_path, sort_order)')
+        .select('*, project_materials(*, material_costs(cost)), project_photos(id, storage_path, sort_order)')
         .eq('id', id)
         .single()
 
@@ -69,13 +78,26 @@ export default function ProjectFormPage() {
         finish_date: project.finish_date ?? '',
         made_for: project.made_for ?? '',
         pattern_url: project.pattern_url ?? '',
+        icon: project.icon ?? DEFAULT_ICON,
+        color: project.color ?? DEFAULT_COLOR,
+        description: project.description ?? '',
+        difficulty: project.difficulty ?? null,
       })
+
+      // Private notes are in a separate, owner-only table
+      const notesResult = await supabase.from('project_notes').select('notes').eq('project_id', id).maybeSingle()
+      setNotes(notesResult.data?.notes ?? '')
+
       // Database NULLs become '' so the inputs are "controlled" by React
       setMaterials(project.project_materials
-        .sort((a, b) => a.created_at.localeCompare(b.created_at))
+        .map(withCost) // private cost from the material_costs table
+        .sort((a, b) => a.sort_order - b.sort_order || a.created_at.localeCompare(b.created_at))
         .map((m) => ({
           key: m.id,
           material_type: m.material_type,
+          status: m.status ?? 'owned',
+          quantity: m.quantity ?? 1,
+          cost: m.cost ?? '',
           brand: m.brand ?? '', color: m.color ?? '', weight: m.weight ?? '',
           yardage: m.yardage ?? '', gauge: m.gauge ?? '', size: m.size ?? '', notes: m.notes ?? '',
         })))
@@ -95,11 +117,18 @@ export default function ProjectFormPage() {
 
   function validate() {
     if (!form.title.trim()) return 'Please enter a title.'
+    if (!PROJECT_ICONS[form.icon]) return 'Please choose an icon.'
+    if (!PROJECT_COLORS.some((c) => c.name === form.color)) return 'Please choose a color.'
     if (!form.craft_type_id) return 'Please choose a craft type.'
     if (!form.start_date) return 'Please choose a start date.'
     if (form.finish_date && form.finish_date < form.start_date) return 'Finish date cannot be before the start date.'
     if (form.pattern_url && !/^https?:\/\//i.test(form.pattern_url.trim())) {
       return 'Pattern link must start with http:// or https://'
+    }
+    // Material costs are optional, but can't be negative
+    for (const m of materials) {
+      const cost = String(m.cost ?? '').trim()
+      if (cost !== '' && !(Number(cost) >= 0)) return 'Material costs must be 0 or more.'
     }
     return ''
   }
@@ -119,6 +148,10 @@ export default function ProjectFormPage() {
       finish_date: form.finish_date || null,
       made_for: form.made_for.trim() || null,
       pattern_url: form.pattern_url.trim() || null,
+      icon: form.icon,
+      color: form.color,
+      description: form.description.trim() || null,
+      difficulty: form.difficulty,
     }
 
     try {
@@ -140,6 +173,21 @@ export default function ProjectFormPage() {
       if (deleteError) throw deleteError
       if (materials.length) {
         const { error } = await supabase.from('project_materials').insert(materialsToRows(materials, projectId))
+        if (error) throw error
+
+        // Private costs (deleting the materials above removed the old ones)
+        const costRows = materialCostsToRows(materials)
+        if (costRows.length) {
+          const { error: costError } = await supabase.from('material_costs').insert(costRows)
+          if (costError) throw costError
+        }
+      }
+
+      // 2b. Private notes: "upsert" = insert the row, or update it if it already exists
+      if (isEdit || notes.trim()) {
+        const { error } = await supabase
+          .from('project_notes')
+          .upsert({ project_id: projectId, notes: notes.trim() }, { onConflict: 'project_id' })
         if (error) throw error
       }
 
@@ -191,6 +239,28 @@ export default function ProjectFormPage() {
             <input name="title" required maxLength={120} value={form.title} onChange={handleChange} />
           </label>
 
+          <label className="field">
+            <span>Description</span>
+            <textarea
+              name="description"
+              rows={3}
+              maxLength={5000}
+              value={form.description}
+              onChange={handleChange}
+              placeholder="What are you making? Any changes to the pattern?"
+            />
+            <small className="field-hint"><Users size={13} /> Your friends can see this.</small>
+          </label>
+
+          <div className="field">
+            <span>Icon and color <span className="required">*</span></span>
+            <IconColorPicker
+              icon={form.icon}
+              color={form.color}
+              onChange={({ icon, color }) => setForm({ ...form, icon, color })}
+            />
+          </div>
+
           <div className="field-grid">
             <label className="field">
               <span>Craft type <span className="required">*</span></span>
@@ -221,6 +291,10 @@ export default function ProjectFormPage() {
               <span>Pattern link</span>
               <input type="url" name="pattern_url" value={form.pattern_url} onChange={handleChange} placeholder="https://..." />
             </label>
+            <div className="field">
+              <span>Difficulty</span>
+              <DifficultyPicker value={form.difficulty} onChange={(difficulty) => setForm({ ...form, difficulty })} />
+            </div>
           </div>
         </section>
 
@@ -245,6 +319,20 @@ export default function ProjectFormPage() {
             }}
           />
         </section>
+
+        <section className="card stack-sm">
+          <h2>Personal notes</h2>
+          <p className="field-hint"><Lock size={14} /> Only you can see these.</p>
+          <textarea
+            rows={4}
+            maxLength={10000}
+            value={notes}
+            onChange={(e) => setNotes(e.target.value)}
+            placeholder="Row counts, reminders, what you'd do differently..."
+            aria-label="Personal notes"
+          />
+        </section>
+
 
         <div className="row-end">
           <button type="button" className="btn btn-ghost" onClick={() => navigate(-1)} disabled={Boolean(saving)}>Cancel</button>

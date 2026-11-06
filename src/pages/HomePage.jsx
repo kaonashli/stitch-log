@@ -9,6 +9,9 @@ import { timeAgo } from '../lib/dates.js'
 import { useAuth } from '../context/AuthContext.jsx'
 import Avatar from '../components/Avatar.jsx'
 import StatusBadge from '../components/StatusBadge.jsx'
+import ProjectIcon from '../components/ProjectIcon.jsx'
+import ShoppingList from '../components/ShoppingList.jsx'
+import Footer from '../components/Footer.jsx'
 import Spinner from '../components/Spinner.jsx'
 import ErrorMessage from '../components/ErrorMessage.jsx'
 
@@ -26,14 +29,14 @@ export default function HomePage() {
       // which lets us filter on the project's user_id.
       const feedQuery = supabase
         .from('project_status_history')
-        .select('id, status, changed_at, projects!inner(id, title, user_id, profiles(id, username, display_name, avatar_path))')
+        .select('id, status, changed_at, projects!inner(id, title, user_id, profiles!projects_user_id_fkey(id, username, display_name, avatar_path))')
         .neq('projects.user_id', user.id)
         .order('changed_at', { ascending: false })
         .limit(40)
 
       const activeQuery = supabase
         .from('projects')
-        .select('id, title, status')
+        .select('id, title, status, icon, color')
         .eq('user_id', user.id)
         .eq('status', 'in_progress')
         .order('updated_at', { ascending: false })
@@ -49,6 +52,7 @@ export default function HomePage() {
   }, [user.id])
 
   return (
+    <>
     <div className="home-layout">
       <section className="stack">
         <h1>Hi, {profile?.display_name}</h1>
@@ -60,7 +64,7 @@ export default function HomePage() {
           <div className="card empty">
             <Users size={28} />
             <p>No friend activity yet.</p>
-            <Link to="/profile" className="btn btn-ghost">Find friends on your profile</Link>
+            <Link to="/friends" className="btn btn-ghost">Find friends</Link>
           </div>
         )}
 
@@ -86,16 +90,29 @@ export default function HomePage() {
         </ul>
       </section>
 
-      <aside className="card stack home-side">
-        <h2>Your work in progress</h2>
-        {myActive.length === 0 && <p className="muted">Nothing in progress.</p>}
-        <ul className="simple-list">
-          {myActive.map((p) => (
-            <li key={p.id}><Link to={`/projects/${p.id}`}>{p.title}</Link></li>
-          ))}
-        </ul>
-        <Link to="/projects/new" className="btn btn-primary"><Plus size={16} /> New project</Link>
+      <aside className="stack home-side">
+        <div className="card stack">
+          <h2>Your work in progress</h2>
+          {myActive.length === 0 && <p className="muted">Nothing in progress.</p>}
+          <ul className="simple-list">
+            {myActive.map((p) => (
+              <li key={p.id}>
+                <Link to={`/projects/${p.id}`} className="row">
+                  <ProjectIcon icon={p.icon} color={p.color} size={26} />
+                  <span>{p.title}</span>
+                </Link>
+              </li>
+            ))}
+          </ul>
+          <Link to="/projects/new" className="btn btn-primary"><Plus size={16} /> New project</Link>
+        </div>
+
+        <ShoppingList userId={user.id} />
       </aside>
     </div>
+
+    {/* Release notes link + developed by */}
+    <Footer />
+    </>
   )
 }

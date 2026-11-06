@@ -1,16 +1,16 @@
 // Profile page. /profile shows your own; /u/:username shows someone else's.
-// Your own profile has editable widgets + the friends panel. Friends see
-// your widgets read-only. Non-friends just see your name and an Add button.
+// Your own profile has editable widgets and a Settings button (on phones
+// that's the way to reach Settings). Friends see your widgets read-only.
+// Non-friends just see your name and an Add button.
 import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
-import { Lock, Pencil } from 'lucide-react'
+import { Lock, Settings } from 'lucide-react'
 import { supabase } from '../lib/supabase.js'
 import { escapeLike } from '../lib/friends.js'
 import { formatDate, toLocalDateString } from '../lib/dates.js'
 import { useAuth } from '../context/AuthContext.jsx'
 import Avatar from '../components/Avatar.jsx'
 import Spinner from '../components/Spinner.jsx'
-import FriendsPanel from '../components/friends/FriendsPanel.jsx'
 import FriendButton from '../components/friends/FriendButton.jsx'
 import WidgetBoard from '../components/widgets/WidgetBoard.jsx'
 
@@ -56,16 +56,13 @@ export default function ProfilePage() {
         </div>
         <div className="profile-actions">
           {isOwn
-            ? <Link to="/settings" className="btn btn-ghost"><Pencil size={16} /> Edit profile</Link>
+            ? <Link to="/settings" className="btn btn-ghost"><Settings size={16} /> Settings</Link>
             : <FriendButton me={me} other={profile} onChange={(f) => setIsFriend(f?.status === 'accepted')} />}
         </div>
       </div>
 
       {isOwn ? (
-        <div className="profile-layout">
-          <WidgetBoard userId={me.id} editable />
-          <FriendsPanel me={me} />
-        </div>
+        <WidgetBoard userId={me.id} editable />
       ) : isFriend ? (
         <WidgetBoard userId={profile.id} editable={false} />
       ) : (

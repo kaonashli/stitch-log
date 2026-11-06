@@ -1,14 +1,20 @@
-// Kanban board: one column per status. On your own profile you can drag a
-// card to another column to change that project's status (mouse only).
+// Kanban board: one column per status. On your own profile you can move a
+// card to another column to change that project's status:
+//   - Mouse: drag and drop (the browser's built-in drag and drop).
+//   - Touch (phones): press and hold a card for a moment, then drag it
+//     (handled by the useTouchDrag hook, since browsers don't support
+//     built-in drag and drop with touch).
 //
 // Customizable: the sliders button in the widget header opens a panel where
-// you can show/hide each column and change their order. That choice is saved in the widget's
-// settings as { columns: [{ status: 'idea', visible: true }, ...] }.
+// you can show/hide each column and change their order. That choice is saved
+// in the widget's settings as { columns: [{ status: 'idea', visible: true }, ...] }.
 // With no saved settings it shows every status in the normal order.
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { ArrowLeft, ArrowRight } from 'lucide-react'
 import { STATUSES, statusLabel } from '../../lib/constants.js'
+import { useTouchDrag } from '../../lib/useTouchDrag.js'
+import ProjectIcon from '../ProjectIcon.jsx'
 
 // Our own drag data type, so a card drag can't be confused with other drags
 const PROJECT_DRAG_TYPE = 'application/x-stitchlog-project'
@@ -61,13 +67,22 @@ function ColumnSettings({ columns, onChange }) {
 }
 
 export default function KanbanWidget({ projects, canDrag, onStatusChange, settings, customizing, onSettingsChange }) {
-  const [overColumn, setOverColumn] = useState(null) // highlight the column being dragged over
+  const [mouseOverColumn, setMouseOverColumn] = useState(null) // column under a mouse drag
   const columns = getColumns(settings)
   const visibleColumns = columns.filter((c) => c.visible)
 
+  // Touch drag: dropping a project on a column changes its status
+  const touch = useTouchDrag({
+    holdMs: 300,
+    onDrop: (project, status) => {
+      if (project.status !== status) onStatusChange(project, status)
+    },
+  })
+
+  // Mouse drag (built-in drag and drop)
   function handleDrop(event, status) {
     event.preventDefault()
-    setOverColumn(null)
+    setMouseOverColumn(null)
     const projectId = event.dataTransfer.getData(PROJECT_DRAG_TYPE)
     const project = projects.find((p) => p.id === projectId)
     if (project && project.status !== status) onStatusChange(project, status)
@@ -79,6 +94,8 @@ export default function KanbanWidget({ projects, canDrag, onStatusChange, settin
         <ColumnSettings columns={columns} onChange={(next) => onSettingsChange({ ...settings, columns: next })} />
       )}
 
+      {canDrag && <small className="muted touch-only">Press and hold a project to move it to another column.</small>}
+
       {visibleColumns.length === 0 ? (
         <p className="muted">All columns are hidden.</p>
       ) : (
@@ -86,17 +103,19 @@ export default function KanbanWidget({ projects, canDrag, onStatusChange, settin
         <div className="kanban" style={{ '--kanban-cols': visibleColumns.length }}>
           {visibleColumns.map(({ status }) => {
             const columnProjects = projects.filter((p) => p.status === status)
+            const isOver = mouseOverColumn === status || touch.overTarget === status
             return (
               <div
                 key={status}
-                className={`kanban-column ${overColumn === status ? 'kanban-column-over' : ''}`}
+                data-drop-target={status}
+                className={`kanban-column ${isOver ? 'kanban-column-over' : ''}`}
                 onDragOver={(e) => {
                   // Only react to project cards (not e.g. a whole widget being moved)
                   if (!canDrag || !e.dataTransfer.types.includes(PROJECT_DRAG_TYPE)) return
                   e.preventDefault()
-                  setOverColumn(status)
+                  setMouseOverColumn(status)
                 }}
-                onDragLeave={() => setOverColumn(null)}
+                onDragLeave={() => setMouseOverColumn(null)}
                 onDrop={(e) => handleDrop(e, status)}
               >
                 <div className={`kanban-column-title status-text-${status}`}>
@@ -108,20 +127,34 @@ export default function KanbanWidget({ projects, canDrag, onStatusChange, settin
                   <Link
                     key={project.id}
                     to={`/projects/${project.id}`}
-                    className="kanban-card"
+                    className={`kanban-card ${touch.ghost?.item.id === project.id ? 'kanban-card-lifted' : ''}`}
                     draggable={canDrag}
                     onDragStart={(e) => {
                       e.stopPropagation() // don't also start dragging the whole widget
                       e.dataTransfer.setData(PROJECT_DRAG_TYPE, project.id)
                     }}
+                    onTouchStart={(e) => { if (canDrag) touch.handleTouchStart(e, project) }}
+                    onContextMenu={(e) => { if (canDrag) e.preventDefault() }} // no long-press menu on Android
+                    onClick={(e) => { if (touch.justDragged()) e.preventDefault() }}
                   >
-                    <strong>{project.title}</strong>
-                    <small className="muted">{project.craft_types?.name}</small>
+                    <ProjectIcon icon={project.icon} color={project.color} size={26} />
+                    <span className="kanban-card-text">
+                      <strong>{project.title}</strong>
+                      <small className="muted">{project.craft_types?.name}</small>
+                    </span>
                   </Link>
                 ))}
               </div>
             )
           })}
+        </div>
+      )}
+
+      {/* The card that follows your finger during a touch drag */}
+      {touch.ghost && (
+        <div className="drag-ghost" style={{ left: touch.ghost.x, top: touch.ghost.y }} aria-hidden="true">
+          <ProjectIcon icon={touch.ghost.item.icon} color={touch.ghost.item.color} size={26} />
+          <strong>{touch.ghost.item.title}</strong>
         </div>
       )}
     </div>

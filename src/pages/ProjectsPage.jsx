@@ -1,13 +1,15 @@
 // "My projects": a grid of your projects with a status filter.
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { ImageOff, Plus } from 'lucide-react'
+import { Plus } from 'lucide-react'
 import { supabase } from '../lib/supabase.js'
 import { getPhotoUrls } from '../lib/images.js'
 import { formatDate } from '../lib/dates.js'
 import { STATUSES } from '../lib/constants.js'
 import { useAuth } from '../context/AuthContext.jsx'
 import StatusBadge from '../components/StatusBadge.jsx'
+import ProjectIcon from '../components/ProjectIcon.jsx'
+import { colorVar } from '../lib/projectLooks.js'
 import Spinner from '../components/Spinner.jsx'
 import ErrorMessage from '../components/ErrorMessage.jsx'
 
@@ -25,7 +27,7 @@ export default function ProjectsPage() {
       // craft_type_id foreign key, project_photos(...) gets each project's photos.
       const { data, error } = await supabase
         .from('projects')
-        .select('id, title, status, start_date, finish_date, craft_types(name), project_photos(storage_path, sort_order)')
+        .select('id, title, status, start_date, finish_date, icon, color, craft_types(name), project_photos(storage_path, sort_order)')
         .eq('user_id', user.id)
         .order('start_date', { ascending: false })
 
@@ -84,10 +86,11 @@ export default function ProjectsPage() {
       <div className="project-grid">
         {shown.map((project) => (
           <Link key={project.id} to={`/projects/${project.id}`} className="project-card card">
-            <div className="project-card-cover">
+            {/* First photo as the cover; no photos = the project's icon on its color */}
+            <div className="project-card-cover" style={{ '--pc': colorVar(project.color) }}>
               {coverUrls[project.id]
                 ? <img src={coverUrls[project.id]} alt="" loading="lazy" />
-                : <ImageOff size={28} />}
+                : <ProjectIcon icon={project.icon} color={project.color} size={72} className="project-icon-cover" />}
             </div>
             <div className="project-card-body">
               <div className="row-between">

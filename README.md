@@ -9,15 +9,17 @@ Built with React (Vite) and Supabase (Postgres, Auth, Storage). Works on desktop
 ## Features
 
 - **Accounts** - sign up with email and password, a display name, a unique username, and an optional profile picture. Light and dark mode.
-- **Projects** - title, craft type (knitting or crochet), status (idea, in progress, paused, finished, frogged), start and finish dates, who it's for, a pattern link, and up to 10 photos.
-- **Materials** - any number per project: yarn (brand, color, weight, yardage, gauge), needles or hooks (size), string, stuffing, and buttons (color).
+- **Projects** - title, a small icon and color of your choice, craft type (knitting or crochet), status (idea, in progress, paused, finished, frogged), start and finish dates, who it's for, a pattern link, up to 10 photos, a description your friends can read, and private personal notes.
+- **Materials** - any number per project: yarn (brand, color, weight, yardage, gauge), needles or hooks (size), string, stuffing, and buttons (color). Sorted into "To buy" and "In my stash" with drag and drop. Each has an amount and an optional cost, which add up to the project's total cost (costs are private to you).
+- **Difficulty** - rate projects from Beginner to Expert.
 - **Photos** - resized and compressed in the browser before upload (about 300 KB each) to stay within Supabase's free storage.
-- **Friends** - find people by username, send and accept friend requests. Friends can see each other's projects and photos.
+- **Friends** - find people by username, send and accept friend requests. Friends can see each other's projects and photos. Friends can heart and comment on each other's projects. A notifications bell collects hearts, comments, and friend requests, with live pop-ups and a badge for anything new.
 - **Profile dashboard** - widgets you can move, remove, and add back:
-  - *Project board* - a kanban of your projects by status. Drag a card to change its status (mouse), and choose which columns to show and in what order.
-  - *Stitch calendar* - the last six months as small dot calendars showing which days you worked on a project and what status it was in.
-- **Home feed** - recent status changes on your friends' projects.
-- **Admin area** - assign roles to users and choose which permissions each role has. New permissions can be added without code changes.
+  - *Project board* - a kanban of your projects by status. Drag a card to change its status (on phones, press and hold first), and choose which columns to show and in what order.
+  - *Project timeline* - a bar for each project from its start to its finish, colored by status over time.
+- **Home** - recent status changes on your friends' projects, and a shopping list of everything you still need to buy.
+- **Release notes and feedback** - a public release notes page in plain language, with a box at the top for reporting a bug or requesting a change (no account needed).
+- **Admin dashboard** - an overview, every user with their roles and permissions, bug reports and change requests on a mini kanban, and which permissions each role has. New permissions can be added without code changes.
 
 ## Getting started
 
@@ -29,6 +31,8 @@ Built with React (Vite) and Supabase (Postgres, Auth, Storage). Works on desktop
 ### 1. Set up the database
 
 In the Supabase dashboard, open **SQL Editor**, paste the contents of [`supabase/schema.sql`](supabase/schema.sql), and run it once. This creates the tables, security rules, and storage buckets.
+
+`schema.sql` is always the complete, current schema. The files in [`supabase/migrations/`](supabase/migrations/) are only for databases created from an older version of it: run any you haven't run yet, in number order.
 
 Then, under **Authentication > URL Configuration**, set the **Site URL** to `http://localhost:5180` and add it to **Redirect URLs** (so email confirmation links come back to the app).
 
@@ -82,13 +86,17 @@ The live site is hosted on [Netlify](https://www.netlify.com/), built from the `
 
 ```
 supabase/          SQL: schema, admin helper, test data
+  migrations/      changes for databases created from an older schema.sql
 public/            favicon, app icons, web app manifest
 src/
-  lib/             Supabase client, constants, date/image/friend helpers
-  context/         AuthContext (who is logged in), ThemeContext (light/dark)
+  lib/             Supabase client, constants, release notes text, and helpers for dates,
+                   images, friends, hearts/comments, notifications, and feedback
+  context/         AuthContext (who is logged in), ThemeContext (light/dark),
+                   NotificationsContext (badges, pop-up messages, live updates)
   components/      layout and shared pieces
     friends/       friend search, requests, friend button
-    widgets/       profile dashboard, project board, stitch calendar
+    widgets/       profile dashboard, project board, project timeline
+    admin/         feedback kanban for the admin dashboard
   pages/           one file per page (routes are listed in App.jsx)
   index.css        all styles; colors are CSS variables per theme
 ```
@@ -101,4 +109,11 @@ src/
 
 ## Release notes
 
-See [CHANGELOG.md](CHANGELOG.md).
+Current version: **0.1.0** (beta), released November 5, 2026.
+
+- In the app: the **Release notes** page (`/release-notes`, open to everyone, linked from the login page and the home page). Its plain-language content is in [`src/lib/releaseNotes.js`](src/lib/releaseNotes.js).
+- For developers: [CHANGELOG.md](CHANGELOG.md).
+
+## Author
+
+Developed by [kaonashli](https://github.com/kaonashli).

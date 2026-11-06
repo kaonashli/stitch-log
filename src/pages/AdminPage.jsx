@@ -1,49 +1,92 @@
-// Admin area (needs the 'admin.access' permission).
-//   Users tab:       see every user and give/take roles
-//   Permissions tab: which role has which permission, add new roles/permissions
+// Admin dashboard (needs the 'admin.access' permission). Tabs:
+//   Dashboard     quick numbers: users, who's been active, projects, open reports
+//   Users         every user with email, joined / last login / last active dates,
+//                 and their roles (tick boxes) + the permissions those roles give
+//   Feedback      bug reports and change requests on a mini kanban
+//   Roles & permissions  which role has which permission; add roles/permissions
 //
 // Hiding this page in the UI is just for convenience - the real protection is
 // the database RLS policies, which check has_permission() on every request.
 import { useEffect, useState } from 'react'
 import { Navigate } from 'react-router-dom'
-import { Plus, Trash2 } from 'lucide-react'
+import { Activity, Inbox, Layers, Plus, Trash2, UserPlus, Users } from 'lucide-react'
 import { supabase } from '../lib/supabase.js'
-import { formatDate, toLocalDateString } from '../lib/dates.js'
+import { formatDate, timeAgo, toLocalDateString } from '../lib/dates.js'
 import { useAuth } from '../context/AuthContext.jsx'
 import Avatar from '../components/Avatar.jsx'
 import Spinner from '../components/Spinner.jsx'
 import ErrorMessage from '../components/ErrorMessage.jsx'
+import FeedbackBoard from '../components/admin/FeedbackBoard.jsx'
+
+const TABS = [
+  { value: 'dashboard', label: 'Dashboard' },
+  { value: 'users', label: 'Users' },
+  { value: 'feedback', label: 'Feedback' },
+  { value: 'permissions', label: 'Roles & permissions' },
+]
+
+const DAY_MS = 24 * 60 * 60 * 1000
+
+function shortDate(iso) {
+  return iso ? formatDate(toLocalDateString(new Date(iso))) : ''
+}
+
+function StatTile({ icon: Icon, label, value, hint }) {
+  return (
+    <div className="card stat-tile">
+      <span className="stat-icon"><Icon size={18} /></span>
+      <span className="stat-value">{value}</span>
+      <span className="stat-label">{label}</span>
+      {hint && <small className="muted">{hint}</small>}
+    </div>
+  )
+}
 
 export default function AdminPage() {
   const { user, hasPermission, refreshProfile } = useAuth()
-  const [tab, setTab] = useState('users')
-  const [profiles, setProfiles] = useState([])
+  const [tab, setTab] = useState('dashboard')
+  const [users, setUsers] = useState([])
   const [roles, setRoles] = useState([])
   const [permissions, setPermissions] = useState([])
   const [userRoles, setUserRoles] = useState([]) // [{ user_id, role_id }]
   const [rolePermissions, setRolePermissions] = useState([]) // [{ role_id, permission_id }]
+  const [stats, setStats] = useState({ projects: 0, openReports: 0, newReports: 0 })
   const [newPermission, setNewPermission] = useState({ key: '', description: '' })
   const [newRole, setNewRole] = useState('')
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
 
   const canManageRoles = hasPermission('roles.manage')
+  const canManageFeedback = hasPermission('feedback.manage')
+
+  async function loadUsers() {
+    // admin_list_users() adds email + last login (from Supabase's private auth table)
+    const { data, error } = await supabase.rpc('admin_list_users')
+    if (!error) return data
+    // Fallback if migration 009 hasn't been run yet: profiles only
+    const fallback = await supabase.from('profiles').select('id, username, display_name, avatar_path, created_at').order('created_at')
+    return fallback.data ?? []
+  }
 
   async function load() {
-    const [p, r, perm, ur, rp] = await Promise.all([
-      supabase.from('profiles').select('id, username, display_name, avatar_path, created_at').order('created_at'),
+    const [userList, r, perm, ur, rp, projectCount, openCount, newCount] = await Promise.all([
+      loadUsers(),
       supabase.from('roles').select('*').order('id'),
       supabase.from('permissions').select('*').order('key'),
       supabase.from('user_roles').select('*'),
       supabase.from('role_permissions').select('*'),
+      supabase.from('projects').select('id', { count: 'exact', head: true }),
+      supabase.from('feedback_reports').select('id', { count: 'exact', head: true }).neq('status', 'done'),
+      supabase.from('feedback_reports').select('id', { count: 'exact', head: true }).eq('status', 'new'),
     ])
-    const failed = [p, r, perm, ur, rp].find((res) => res.error)
+    const failed = [r, perm, ur, rp].find((res) => res.error)
     if (failed) setError(failed.error.message)
-    setProfiles(p.data ?? [])
+    setUsers(userList)
     setRoles(r.data ?? [])
     setPermissions(perm.data ?? [])
     setUserRoles(ur.data ?? [])
     setRolePermissions(rp.data ?? [])
+    setStats({ projects: projectCount.count ?? 0, openReports: openCount.count ?? 0, newReports: newCount.count ?? 0 })
     setLoading(false)
   }
 
@@ -62,6 +105,7 @@ export default function AdminPage() {
     await load()
   }
 
+  // ----- Roles for users -----
   function hasRole(userId, roleId) {
     return userRoles.some((ur) => ur.user_id === userId && ur.role_id === roleId)
   }
@@ -78,6 +122,14 @@ export default function AdminPage() {
     }
   }
 
+  // Everything a user is allowed to do, through all their roles
+  function permissionsOf(userId) {
+    const roleIds = userRoles.filter((ur) => ur.user_id === userId).map((ur) => ur.role_id)
+    const permissionIds = new Set(rolePermissions.filter((rp) => roleIds.includes(rp.role_id)).map((rp) => rp.permission_id))
+    return permissions.filter((p) => permissionIds.has(p.id))
+  }
+
+  // ----- Permissions for roles -----
   function roleHasPermission(roleId, permissionId) {
     return rolePermissions.some((rp) => rp.role_id === roleId && rp.permission_id === permissionId)
   }
@@ -107,6 +159,15 @@ export default function AdminPage() {
     setNewRole('')
   }
 
+  // ----- Dashboard numbers -----
+  const now = Date.now()
+  const activeThisWeek = users.filter((u) => u.last_seen_at && now - new Date(u.last_seen_at) < 7 * DAY_MS).length
+  const joinedThisMonth = users.filter((u) => now - new Date(u.created_at) < 30 * DAY_MS).length
+  const recentlyActive = [...users]
+    .filter((u) => u.last_seen_at)
+    .sort((a, b) => b.last_seen_at.localeCompare(a.last_seen_at))
+    .slice(0, 5)
+
   return (
     <div className="stack">
       <div className="page-header">
@@ -114,12 +175,52 @@ export default function AdminPage() {
       </div>
 
       <div className="chips">
-        <button className={`chip ${tab === 'users' ? 'chip-active' : ''}`} onClick={() => setTab('users')}>Users ({profiles.length})</button>
-        <button className={`chip ${tab === 'permissions' ? 'chip-active' : ''}`} onClick={() => setTab('permissions')}>Roles &amp; permissions</button>
+        {TABS.filter((t) => t.value !== 'feedback' || canManageFeedback).map((t) => (
+          <button key={t.value} className={`chip ${tab === t.value ? 'chip-active' : ''}`} onClick={() => setTab(t.value)}>
+            {t.label}
+            {t.value === 'users' && ` (${users.length})`}
+            {t.value === 'feedback' && stats.newReports > 0 && <span className="count-pill">{stats.newReports}</span>}
+          </button>
+        ))}
       </div>
 
       <ErrorMessage message={error} />
 
+      {/* ---------- Dashboard ---------- */}
+      {tab === 'dashboard' && (
+        <div className="stack">
+          <div className="stat-grid">
+            <StatTile icon={Users} label="Users" value={users.length} />
+            <StatTile icon={Activity} label="Active this week" value={activeThisWeek} hint="Opened the app in the last 7 days" />
+            <StatTile icon={UserPlus} label="New this month" value={joinedThisMonth} hint="Joined in the last 30 days" />
+            <StatTile icon={Layers} label="Projects" value={stats.projects} />
+            {canManageFeedback && (
+              <StatTile icon={Inbox} label="Open reports" value={stats.openReports} hint={`${stats.newReports} new`} />
+            )}
+          </div>
+
+          <div className="card stack-sm">
+            <h2>Recently active</h2>
+            {recentlyActive.length === 0 && <p className="muted">No activity recorded yet.</p>}
+            <ul className="person-list">
+              {recentlyActive.map((u) => (
+                <li key={u.id} className="person-row">
+                  <span className="person-link">
+                    <Avatar profile={u} size={34} />
+                    <span className="person-names">
+                      <strong>{u.display_name}</strong>
+                      <small className="muted">@{u.username}</small>
+                    </span>
+                  </span>
+                  <small className="muted">{timeAgo(u.last_seen_at)}</small>
+                </li>
+              ))}
+            </ul>
+          </div>
+        </div>
+      )}
+
+      {/* ---------- Users ---------- */}
       {tab === 'users' && (
         <div className="card table-wrap">
           <table className="table">
@@ -127,37 +228,58 @@ export default function AdminPage() {
               <tr>
                 <th>User</th>
                 <th>Joined</th>
+                <th>Last login</th>
+                <th>Last active</th>
                 {roles.map((r) => <th key={r.id}>{r.name}</th>)}
               </tr>
             </thead>
             <tbody>
-              {profiles.map((p) => (
-                <tr key={p.id}>
-                  <td>
-                    <span className="row">
-                      <Avatar profile={p} size={28} />
-                      <span>{p.display_name} <span className="muted">@{p.username}</span></span>
-                    </span>
-                  </td>
-                  <td className="muted">{formatDate(toLocalDateString(new Date(p.created_at)))}</td>
-                  {roles.map((r) => (
-                    <td key={r.id}>
-                      <input
-                        type="checkbox"
-                        checked={hasRole(p.id, r.id)}
-                        disabled={!canManageRoles}
-                        onChange={() => toggleUserRole(p.id, r)}
-                        aria-label={`${r.name} role for ${p.username}`}
-                      />
+              {users.map((u) => {
+                const perms = permissionsOf(u.id)
+                return (
+                  <tr key={u.id}>
+                    <td>
+                      <span className="row admin-user">
+                        <Avatar profile={u} size={30} />
+                        <span className="person-names">
+                          <strong>{u.display_name} <span className="muted">@{u.username}</span></strong>
+                          {u.email && <small className="muted">{u.email}</small>}
+                          <small className="muted" title={perms.map((p) => p.key).join(', ')}>
+                            {perms.length ? `${perms.length} permission${perms.length === 1 ? '' : 's'}` : 'No extra permissions'}
+                          </small>
+                        </span>
+                      </span>
                     </td>
-                  ))}
-                </tr>
-              ))}
+                    <td className="muted nowrap">{shortDate(u.created_at)}</td>
+                    <td className="muted nowrap" title={u.last_sign_in_at ? new Date(u.last_sign_in_at).toLocaleString() : ''}>
+                      {u.last_sign_in_at ? timeAgo(u.last_sign_in_at) : 'Never'}
+                    </td>
+                    <td className="muted nowrap" title={u.last_seen_at ? new Date(u.last_seen_at).toLocaleString() : ''}>
+                      {u.last_seen_at ? timeAgo(u.last_seen_at) : 'Not yet'}
+                    </td>
+                    {roles.map((r) => (
+                      <td key={r.id}>
+                        <input
+                          type="checkbox"
+                          checked={hasRole(u.id, r.id)}
+                          disabled={!canManageRoles}
+                          onChange={() => toggleUserRole(u.id, r)}
+                          aria-label={`${r.name} role for ${u.username}`}
+                        />
+                      </td>
+                    ))}
+                  </tr>
+                )
+              })}
             </tbody>
           </table>
         </div>
       )}
 
+      {/* ---------- Feedback ---------- */}
+      {tab === 'feedback' && canManageFeedback && <FeedbackBoard onChange={load} />}
+
+      {/* ---------- Roles & permissions ---------- */}
       {tab === 'permissions' && (
         <>
           <div className="card table-wrap">

@@ -1,6 +1,7 @@
 // Centered card used by the login and signup pages.
 import Logo from './Logo.jsx'
 import ThemeToggle from './ThemeToggle.jsx'
+import Footer from './Footer.jsx'
 
 export default function AuthCard({ title, subtitle, children }) {
   return (
@@ -15,6 +16,7 @@ export default function AuthCard({ title, subtitle, children }) {
         {subtitle && <p className="muted">{subtitle}</p>}
         {children}
       </div>
+      <Footer />
     </div>
   )
 }

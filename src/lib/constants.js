@@ -20,6 +20,10 @@ export function statusLabel(value) {
 
 // Every possible material field and how to show it in the form.
 export const MATERIAL_FIELDS = {
+  // How many (whole number, at least 1). Stored as project_materials.quantity.
+  quantity: { label: 'Amount', type: 'number', min: 1, step: 1 },
+  // Price for ONE; the line's cost is cost x amount. Optional.
+  cost: { label: 'Cost each', type: 'number', min: 0, step: 0.01, placeholder: '0.00' },
   brand: { label: 'Brand' },
   color: { label: 'Color' },
   weight: { label: 'Weight', placeholder: 'e.g. DK, Worsted' },
@@ -31,21 +35,70 @@ export const MATERIAL_FIELDS = {
 
 // Which fields each material type uses. Must match the check constraint
 // on project_materials.material_type.
+// Every type starts with Amount and ends with Cost each + Notes.
 export const MATERIAL_TYPES = {
-  yarn: { label: 'Yarn', fields: ['brand', 'color', 'weight', 'yardage', 'gauge', 'notes'] },
-  needle: { label: 'Needle / hook', fields: ['size', 'notes'] },
-  string: { label: 'String', fields: ['notes'] },
-  stuffing: { label: 'Stuffing', fields: ['notes'] },
-  buttons: { label: 'Buttons', fields: ['color', 'notes'] },
+  yarn: { label: 'Yarn', fields: ['quantity', 'brand', 'color', 'weight', 'yardage', 'gauge', 'cost', 'notes'] },
+  needle: { label: 'Needle / hook', fields: ['quantity', 'size', 'cost', 'notes'] },
+  string: { label: 'String', fields: ['quantity', 'cost', 'notes'] },
+  stuffing: { label: 'Stuffing', fields: ['quantity', 'cost', 'notes'] },
+  buttons: { label: 'Buttons', fields: ['quantity', 'color', 'cost', 'notes'] },
+}
+
+// Material costs are private, so they live in their own table (material_costs).
+// Queries fetch them with "project_materials(*, material_costs(cost))"; this
+// copies the cost onto the material as m.cost (null if none, or if it's
+// someone else's project, since the database only gives you your own costs).
+export function withCost(material) {
+  const row = Array.isArray(material.material_costs) ? material.material_costs[0] : material.material_costs
+  return { ...material, cost: row?.cost ?? null }
+}
+
+// Cost of one material line (cost each x amount), or 0 if no cost was entered
+export function materialLineCost(material) {
+  const cost = Number(material.cost)
+  if (material.cost === null || material.cost === '' || Number.isNaN(cost)) return 0
+  return cost * Math.max(1, Math.floor(Number(material.quantity) || 1))
+}
+
+// Does this material have a cost entered?
+export function hasCost(material) {
+  return material.cost !== null && material.cost !== undefined && String(material.cost).trim() !== ''
 }
 
 // Suggestions shown in the yarn "Weight" box (users can still type anything).
 export const YARN_WEIGHTS = ['Lace', 'Fingering', 'Sport', 'DK', 'Worsted', 'Aran', 'Bulky', 'Super Bulky', 'Jumbo']
+
+// The two material sections. Must match the check constraint on
+// project_materials.status. "to_buy" items show on the home shopping list.
+export const MATERIAL_SECTIONS = [
+  { value: 'to_buy', label: 'To buy', hint: 'Still need to get these' },
+  { value: 'owned', label: 'In my stash', hint: 'Already have these' },
+]
+
+// Difficulty 1-5 (projects.difficulty). Based on the usual yarn-craft skill levels.
+export const DIFFICULTIES = [
+  { value: 1, label: 'Beginner' },
+  { value: 2, label: 'Easy' },
+  { value: 3, label: 'Intermediate' },
+  { value: 4, label: 'Experienced' },
+  { value: 5, label: 'Expert' },
+]
+
+export function difficultyLabel(value) {
+  return DIFFICULTIES.find((d) => d.value === value)?.label ?? ''
+}
+
+// Money display. Change CURRENCY to show another currency symbol (e.g. 'EUR', 'CAD').
+export const CURRENCY = 'USD'
+const moneyFormat = new Intl.NumberFormat(undefined, { style: 'currency', currency: CURRENCY })
+export function formatMoney(amount) {
+  return moneyFormat.format(Number(amount) || 0)
+}
 
 export const MAX_PHOTOS = 10
 
 // Must match the check constraint on profile_widgets.widget_type.
 export const WIDGET_TYPES = {
   kanban: { label: 'Project board', description: 'Your projects in columns by status' },
-  calendar: { label: 'Stitch calendar', description: 'Which days you worked on your projects' },
+  calendar: { label: 'Project timeline', description: 'When each project started and finished' },
 }

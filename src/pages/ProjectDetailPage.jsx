@@ -2,23 +2,29 @@
 // Friends can see this page too; only the owner gets Edit / Delete.
 import { useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
-import { CalendarDays, ChevronLeft, ChevronRight, ExternalLink, Gift, Pencil, Trash2, X } from 'lucide-react'
+import { CalendarDays, Check, ChevronLeft, ChevronRight, ExternalLink, Gauge, Gift, Lock, Pencil, Trash2, X } from 'lucide-react'
 import { supabase } from '../lib/supabase.js'
 import { deleteProjectPhotoFiles, getPhotoUrls } from '../lib/images.js'
 import { formatDate, todayLocal } from '../lib/dates.js'
-import { MATERIAL_FIELDS, MATERIAL_TYPES, STATUSES } from '../lib/constants.js'
+import {
+  MATERIAL_FIELDS, MATERIAL_SECTIONS, MATERIAL_TYPES, STATUSES, formatMoney, hasCost, materialLineCost, withCost,
+} from '../lib/constants.js'
 import { useAuth } from '../context/AuthContext.jsx'
 import StatusBadge from '../components/StatusBadge.jsx'
+import ProjectIcon from '../components/ProjectIcon.jsx'
+import { DifficultyDots } from '../components/DifficultyPicker.jsx'
 import Avatar from '../components/Avatar.jsx'
 import Spinner from '../components/Spinner.jsx'
 import ErrorMessage from '../components/ErrorMessage.jsx'
+import ProjectSocial from '../components/ProjectSocial.jsx'
 
 export default function ProjectDetailPage() {
   const { id } = useParams()
   const navigate = useNavigate()
-  const { user } = useAuth()
+  const { user, profile: me } = useAuth()
   const [project, setProject] = useState(null)
   const [photos, setPhotos] = useState([]) // [{ id, storage_path, url }]
+  const [notes, setNotes] = useState('') // private notes, only loaded for the owner
   const [openPhoto, setOpenPhoto] = useState(null) // index of the photo shown large, or null
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -31,8 +37,8 @@ export default function ProjectDetailPage() {
         .select(`
           *,
           craft_types(name),
-          owner:profiles(id, username, display_name, avatar_path),
-          project_materials(*),
+          owner:profiles!projects_user_id_fkey(id, username, display_name, avatar_path),
+          project_materials(*, material_costs(cost)),
           project_photos(id, storage_path, sort_order)
         `)
         .eq('id', id)
@@ -41,15 +47,22 @@ export default function ProjectDetailPage() {
       if (error) setError(error.message)
       else if (!data) setError('Project not found, or you do not have access to it.')
       else {
-        setProject(data)
+        // Costs are private: only your own projects come back with them
+        setProject({ ...data, project_materials: data.project_materials.map(withCost) })
         const sorted = data.project_photos.sort((a, b) => a.sort_order - b.sort_order)
         const urls = await getPhotoUrls(sorted.map((p) => p.storage_path))
         setPhotos(sorted.map((p) => ({ ...p, url: urls[p.storage_path] })))
+
+        // Private notes (the database only returns them to the owner anyway)
+        if (data.user_id === user.id) {
+          const notesResult = await supabase.from('project_notes').select('notes').eq('project_id', id).maybeSingle()
+          setNotes(notesResult.data?.notes ?? '')
+        }
       }
       setLoading(false)
     }
     load()
-  }, [id])
+  }, [id, user.id])
 
   async function handleDelete() {
     if (!window.confirm(`Delete "${project.title}"? This cannot be undone.`)) return
@@ -76,7 +89,22 @@ export default function ProjectDetailPage() {
   if (!project) return <ErrorMessage message={error} />
 
   const isOwner = project.user_id === user.id
-  const materials = [...project.project_materials].sort((a, b) => a.created_at.localeCompare(b.created_at))
+  const materials = [...project.project_materials]
+    .sort((a, b) => a.sort_order - b.sort_order || a.created_at.localeCompare(b.created_at))
+  // Total cost of all materials (cost each x amount), and how much of it is still to buy
+  const totalCost = materials.reduce((sum, m) => sum + materialLineCost(m), 0)
+  const toBuyCost = materials.filter((m) => m.status === 'to_buy').reduce((sum, m) => sum + materialLineCost(m), 0)
+  const anyCosts = materials.some(hasCost)
+
+  // Mark a "to buy" material as bought (moves it to the stash)
+  async function markBought(material) {
+    const { error } = await supabase.from('project_materials').update({ status: 'owned' }).eq('id', material.id)
+    if (error) return setError(error.message)
+    setProject({
+      ...project,
+      project_materials: project.project_materials.map((m) => (m.id === material.id ? { ...m, status: 'owned' } : m)),
+    })
+  }
 
   return (
     <div className="narrow stack">
@@ -84,22 +112,25 @@ export default function ProjectDetailPage() {
 
       <div className="card stack">
         <div className="row-between wrap">
-          <div>
-            <h1>{project.title}</h1>
-            <div className="row muted">
-              {isOwner ? (
-                <select
-                  className={`select-sm status-select status-${project.status}`}
-                  value={project.status}
-                  onChange={handleStatusChange}
-                  aria-label="Status"
-                >
-                  {STATUSES.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
-                </select>
-              ) : (
-                <StatusBadge status={project.status} />
-              )}
-              <span>{project.craft_types?.name}</span>
+          <div className="project-title-row">
+            <ProjectIcon icon={project.icon} color={project.color} size={52} />
+            <div>
+              <h1>{project.title}</h1>
+              <div className="row muted">
+                {isOwner ? (
+                  <select
+                    className={`select-sm status-select status-${project.status}`}
+                    value={project.status}
+                    onChange={handleStatusChange}
+                    aria-label="Status"
+                  >
+                    {STATUSES.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
+                  </select>
+                ) : (
+                  <StatusBadge status={project.status} />
+                )}
+                <span>{project.craft_types?.name}</span>
+              </div>
             </div>
           </div>
           {isOwner && (
@@ -128,8 +159,18 @@ export default function ProjectDetailPage() {
               <dd><a href={project.pattern_url} target="_blank" rel="noopener noreferrer">{project.pattern_url}</a></dd>
             </div>
           )}
+          {project.difficulty && (
+            <div><dt><Gauge size={16} /> Difficulty</dt><dd><DifficultyDots value={project.difficulty} /></dd></div>
+          )}
         </dl>
       </div>
+
+      {project.description && (
+        <div className="card stack-sm">
+          <h2>Description</h2>
+          <p className="prose">{project.description}</p>
+        </div>
+      )}
 
       {photos.length > 0 && (
         <div className="card stack">
@@ -147,21 +188,66 @@ export default function ProjectDetailPage() {
       <div className="card stack">
         <h2>Materials</h2>
         {materials.length === 0 && <p className="muted">No materials listed.</p>}
-        <ul className="material-list">
-          {materials.map((m) => (
-            <li key={m.id}>
-              <strong>{MATERIAL_TYPES[m.material_type]?.label ?? m.material_type}</strong>
-              <span className="material-values">
-                {MATERIAL_TYPES[m.material_type]?.fields
-                  .filter((field) => m[field] !== null && m[field] !== '')
-                  .map((field) => (
-                    <span key={field}><span className="muted">{MATERIAL_FIELDS[field].label}:</span> {m[field]}</span>
-                  ))}
-              </span>
-            </li>
-          ))}
-        </ul>
+        {MATERIAL_SECTIONS.map((section) => {
+          const items = materials.filter((m) => (m.status ?? 'owned') === section.value)
+          if (items.length === 0) return null
+          return (
+            <div key={section.value} className="stack-sm">
+              <h3 className={`material-list-heading material-list-heading-${section.value}`}>
+                {section.label} <span className="muted">({items.length})</span>
+              </h3>
+              <ul className="material-list">
+                {items.map((m) => (
+                  <li key={m.id}>
+                    <strong>
+                      {m.quantity > 1 && <span className="material-qty">{m.quantity} &times; </span>}
+                      {MATERIAL_TYPES[m.material_type]?.label ?? m.material_type}
+                    </strong>
+                    <span className="material-values">
+                      {MATERIAL_TYPES[m.material_type]?.fields
+                        // amount is shown before the name; cost is shown on the right
+                        .filter((field) => field !== 'quantity' && field !== 'cost')
+                        .filter((field) => m[field] !== null && m[field] !== '')
+                        .map((field) => (
+                          <span key={field}><span className="muted">{MATERIAL_FIELDS[field].label}:</span> {m[field]}</span>
+                        ))}
+                    </span>
+                    {hasCost(m) && (
+                      <span className="material-cost" title={m.quantity > 1 ? `${m.quantity} × ${formatMoney(m.cost)}` : undefined}>
+                        {formatMoney(materialLineCost(m))}
+                      </span>
+                    )}
+                    {isOwner && m.status === 'to_buy' && (
+                      <button className="btn btn-xs btn-ghost material-bought" onClick={() => markBought(m)}>
+                        <Check size={12} /> Bought
+                      </button>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )
+        })}
+        {anyCosts && (
+          <div className="materials-total">
+            <span>Total cost <strong>{formatMoney(totalCost)}</strong></span>
+            {toBuyCost > 0 && <small className="muted">{formatMoney(toBuyCost)} still to buy</small>}
+          </div>
+        )}
       </div>
+
+      {/* Hearts and comments */}
+      <ProjectSocial project={project} me={me} />
+
+      {isOwner && (
+        <div className="card stack-sm card-private">
+          <h2 className="row"><Lock size={18} /> Personal notes</h2>
+          <p className="field-hint">Only you can see these.</p>
+          {notes
+            ? <p className="prose">{notes}</p>
+            : <p className="muted">No notes yet. <Link to={`/projects/${project.id}/edit`}>Add some</Link></p>}
+        </div>
+      )}
 
       {/* Simple full-screen photo viewer */}
       {openPhoto !== null && (

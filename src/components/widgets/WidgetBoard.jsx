@@ -18,7 +18,7 @@ import CalendarWidget from './CalendarWidget.jsx'
 async function loadProjects(userId) {
   const { data, error } = await supabase
     .from('projects')
-    .select('id, title, status, start_date, finish_date, craft_types(name), project_status_history(status, changed_at)')
+    .select('id, title, status, start_date, finish_date, icon, color, craft_types(name), project_status_history(status, changed_at)')
     .eq('user_id', userId)
     .order('start_date', { ascending: false })
   if (error) throw error

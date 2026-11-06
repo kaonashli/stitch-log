@@ -1,17 +1,29 @@
-// "Stitch calendar": the last few months as small month calendars made of dots.
-//  - One project selected: each day's dot is colored by that project's status that day.
-//  - All projects: dots get darker the more projects were in progress that day.
+// "Project timeline" widget: one row per project, with a bar running from the
+// day it started to the day it finished (or today, if it's still going).
+// The bar is colored by what the project was doing on each day (idea, in
+// progress, paused...), using its status history, so you can see at a glance
+// how long each project took and when it was put aside.
+//
+// (The widget type is still called 'calendar' in the database; it used to be
+// a dot calendar.)
+import { Link } from 'react-router-dom'
 import { STATUSES, statusLabel } from '../../lib/constants.js'
-import { daysInclusive, parseLocalDate, toLocalDateString, todayLocal } from '../../lib/dates.js'
+import { daysInclusive, formatDate, parseLocalDate, toLocalDateString, todayLocal } from '../../lib/dates.js'
+import ProjectIcon from '../ProjectIcon.jsx'
 
-const MONTHS_SHOWN = 6
-const WEEKDAYS = ['S', 'M', 'T', 'W', 'T', 'F', 'S']
+// How far back the timeline can look (saved in the widget's settings)
+const RANGES = [
+  { value: '3m', label: '3 months', months: 3 },
+  { value: '6m', label: '6 months', months: 6 },
+  { value: '12m', label: '1 year', months: 12 },
+]
+
+const done = (status) => status === 'finished' || status === 'frogged'
 
 // What status was this project in on this day? null = not being worked on.
 export function statusOnDay(project, day, today) {
   if (day < project.start_date || day > today) return null
   if (project.finish_date && day > project.finish_date) return null
-  const done = (s) => s === 'finished' || s === 'frogged'
 
   // The finish day itself shows the final status
   if (project.finish_date && day === project.finish_date && done(project.status)) return project.status
@@ -34,126 +46,151 @@ export function statusOnDay(project, day, today) {
   return entry.status
 }
 
-// The months to draw, oldest first: [{ year, month }] (month is 0-11)
-function recentMonths() {
-  const now = new Date()
-  const months = []
-  for (let i = MONTHS_SHOWN - 1; i >= 0; i--) {
-    const d = new Date(now.getFullYear(), now.getMonth() - i, 1)
-    months.push({ year: d.getFullYear(), month: d.getMonth() })
+// The last day a project shows on the timeline (finish day, or today)
+function lastDay(project, today) {
+  if (project.finish_date) return project.finish_date < today ? project.finish_date : today
+  if (done(project.status)) {
+    const doneEntry = [...project.history].reverse().find((h) => done(h.status))
+    if (doneEntry) return doneEntry.day
   }
-  return months
+  return today
 }
 
-function MonthGrid({ year, month, renderDay }) {
-  const firstWeekday = new Date(year, month, 1).getDay()
-  const daysInMonth = new Date(year, month + 1, 0).getDate()
-  const cells = []
-  for (let i = 0; i < firstWeekday; i++) cells.push(<span key={`blank-${i}`} className="cal-dot cal-blank" />)
-  for (let d = 1; d <= daysInMonth; d++) {
-    cells.push(renderDay(toLocalDateString(new Date(year, month, d)), d))
+// 'Mar 5' (no year, to keep the labels short)
+function shortDate(dayString) {
+  return parseLocalDate(dayString).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
+}
+
+function addDays(dayString, n) {
+  const d = parseLocalDate(dayString)
+  d.setDate(d.getDate() + n)
+  return toLocalDateString(d)
+}
+
+// Split a project's days (within the visible range) into runs of the same status
+function segmentsFor(project, rangeStart, today) {
+  const from = project.start_date > rangeStart ? project.start_date : rangeStart
+  const to = lastDay(project, today)
+  const segments = []
+  for (let day = from; day <= to; day = addDays(day, 1)) {
+    const status = statusOnDay(project, day, today)
+    const last = segments[segments.length - 1]
+    if (status && last && last.status === status && last.to === addDays(day, -1)) last.to = day
+    else if (status) segments.push({ status, from: day, to: day })
   }
-  const name = new Date(year, month, 1).toLocaleDateString(undefined, { month: 'short', year: 'numeric' })
-  return (
-    <div className="cal-month">
-      <div className="cal-month-name">{name}</div>
-      <div className="cal-grid">
-        {WEEKDAYS.map((w, i) => <span key={i} className="cal-weekday">{w}</span>)}
-        {cells}
-      </div>
-    </div>
-  )
+  return segments
 }
 
 export default function CalendarWidget({ projects, settings, editable, onSettingsChange }) {
   const today = todayLocal()
-  const projectId = settings?.projectId ?? 'all'
-  const selected = projects.find((p) => p.id === projectId) ?? null
-  const months = recentMonths()
+  const range = RANGES.find((r) => r.value === settings?.range) ?? RANGES[1] // 6 months by default
 
-  // ----- How each day looks -----
-  function renderDay(day, dayNumber) {
-    const isToday = day === today ? ' cal-today' : ''
-    const label = parseLocalDate(day).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
+  // The timeline starts on the 1st of the month, N months back
+  const startDate = new Date()
+  startDate.setDate(1)
+  startDate.setMonth(startDate.getMonth() - (range.months - 1))
+  const rangeStart = toLocalDateString(startDate)
+  const totalDays = daysInclusive(rangeStart, today)
 
-    if (selected) {
-      const status = statusOnDay(selected, day, today)
-      return (
-        <span
-          key={day}
-          className={`cal-dot${status ? ` status-bg-${status}` : ''}${isToday}`}
-          title={status ? `${label}: ${statusLabel(status)}` : label}
-        >{dayNumber}</span>
-      )
-    }
+  // Position of a day across the timeline, as a percentage of the width
+  const position = (day) => ((daysInclusive(rangeStart, day) - 1) / totalDays) * 100
 
-    const active = projects.filter((p) => statusOnDay(p, day, today) === 'in_progress')
-    const level = Math.min(active.length, 3) // 0-3 intensity
-    return (
-      <span
-        key={day}
-        className={`cal-dot${level ? ` cal-level-${level}` : ''}${isToday}`}
-        title={active.length ? `${label}: ${active.map((p) => p.title).join(', ')}` : label}
-      >{dayNumber}</span>
-    )
+  // Month labels along the top
+  const months = []
+  for (let i = 0; i < range.months; i++) {
+    const d = new Date(startDate.getFullYear(), startDate.getMonth() + i, 1)
+    months.push({ day: toLocalDateString(d), label: d.toLocaleDateString(undefined, { month: 'short' }) })
   }
 
-  // ----- Summary line -----
-  let summary
-  if (selected) {
-    const end = selected.finish_date && selected.finish_date < today ? selected.finish_date : today
-    const total = selected.start_date <= end ? daysInclusive(selected.start_date, end) : 0
-    // Count days actually spent "in progress" (paused days don't count)
-    let worked = 0
-    for (let i = 0; i < total; i++) {
-      const d = parseLocalDate(selected.start_date)
-      d.setDate(d.getDate() + i)
-      if (statusOnDay(selected, toLocalDateString(d), today) === 'in_progress') worked++
-    }
-    summary = `${statusLabel(selected.status)} · ${worked} day${worked === 1 ? '' : 's'} in progress · ${total} day${total === 1 ? '' : 's'} since start`
-  } else {
-    const activeNow = projects.filter((p) => p.status === 'in_progress').length
-    summary = `${activeNow} project${activeNow === 1 ? '' : 's'} in progress right now`
-  }
+  // Projects that overlap the visible range, oldest start first
+  const rows = projects
+    .filter((p) => p.start_date <= today && lastDay(p, today) >= rangeStart)
+    .sort((a, b) => a.start_date.localeCompare(b.start_date))
+    .map((p) => ({ project: p, segments: segmentsFor(p, rangeStart, today), end: lastDay(p, today) }))
 
   return (
     <div className="stack-sm">
       <div className="row-between wrap">
+        <small className="muted">From the day each project started to the day it finished.</small>
         {editable ? (
           <select
             className="select-sm"
-            value={projectId}
-            onChange={(e) => onSettingsChange({ ...settings, projectId: e.target.value })}
-            aria-label="Project shown in calendar"
+            value={range.value}
+            onChange={(e) => onSettingsChange({ ...settings, range: e.target.value })}
+            aria-label="Time range"
           >
-            <option value="all">All projects</option>
-            {projects.map((p) => <option key={p.id} value={p.id}>{p.title}</option>)}
+            {RANGES.map((r) => <option key={r.value} value={r.value}>Last {r.label}</option>)}
           </select>
         ) : (
-          <strong>{selected ? selected.title : 'All projects'}</strong>
+          <small className="muted">Last {range.label}</small>
         )}
-        <small className="muted">{summary}</small>
       </div>
 
-      <div className="cal-months">
-        {months.map((m) => <MonthGrid key={`${m.year}-${m.month}`} year={m.year} month={m.month} renderDay={renderDay} />)}
-      </div>
+      {rows.length === 0 ? (
+        <p className="muted">No projects in this time range.</p>
+      ) : (
+        <div className="timeline">
+          {/* Month labels + faint lines down the timeline */}
+          <div className="timeline-axis">
+            <span className="timeline-label-spacer" />
+            <div className="timeline-axis-track">
+              {/* (month names too close to the right edge would bump into "Today") */}
+              {months.filter((m) => position(m.day) < 88).map((m) => (
+                <span key={m.day} className="timeline-month" style={{ left: `${position(m.day)}%` }}>{m.label}</span>
+              ))}
+              <span className="timeline-today">Today</span>
+            </div>
+          </div>
+
+          {rows.map(({ project, segments, end }) => {
+            const isDone = done(project.status)
+            const days = daysInclusive(project.start_date, end)
+            const startsBefore = project.start_date < rangeStart // started before what's shown
+            return (
+              <Link key={project.id} to={`/projects/${project.id}`} className="timeline-row">
+                <span className="timeline-label">
+                  <ProjectIcon icon={project.icon} color={project.color} size={22} />
+                  <span className="timeline-label-text">
+                    <strong>{project.title}</strong>
+                    <small className="muted">
+                      {shortDate(project.start_date)} {isDone ? `to ${shortDate(end)}` : 'to now'} · {days} day{days === 1 ? '' : 's'}
+                    </small>
+                  </span>
+                </span>
+                <span className="timeline-track">
+                  {months.map((m) => (
+                    <span key={m.day} className="timeline-gridline" style={{ left: `${position(m.day)}%` }} />
+                  ))}
+                  {segments.map((s, i) => (
+                    <span
+                      key={s.from}
+                      className={`timeline-seg status-bg-${s.status} ${i === 0 && !startsBefore ? 'timeline-seg-first' : ''} ${i === segments.length - 1 ? 'timeline-seg-last' : ''}`}
+                      style={{ left: `${position(s.from)}%`, width: `${Math.max(position(addDays(s.to, 1)) - position(s.from), 0.8)}%` }}
+                      title={`${statusLabel(s.status)}: ${formatDate(s.from)} to ${formatDate(s.to)}`}
+                    />
+                  ))}
+                  {/* Start knot, and an end cap for finished / frogged projects */}
+                  {!startsBefore && segments.length > 0 && (
+                    <span className="timeline-knot" style={{ left: `${position(project.start_date)}%` }} />
+                  )}
+                  {isDone && segments.length > 0 && (
+                    <span
+                      className={`timeline-end timeline-end-${project.status}`}
+                      style={{ left: `${position(addDays(end, 1))}%` }}
+                      title={`${statusLabel(project.status)} ${formatDate(end)}`}
+                    />
+                  )}
+                </span>
+              </Link>
+            )
+          })}
+        </div>
+      )}
 
       <div className="cal-legend">
-        {selected ? (
-          STATUSES.map((s) => (
-            <span key={s.value}><span className={`cal-dot cal-legend-dot status-bg-${s.value}`} />{s.label}</span>
-          ))
-        ) : (
-          <>
-            <span className="muted">Fewer</span>
-            <span className="cal-dot cal-legend-dot" />
-            <span className="cal-dot cal-legend-dot cal-level-1" />
-            <span className="cal-dot cal-legend-dot cal-level-2" />
-            <span className="cal-dot cal-legend-dot cal-level-3" />
-            <span className="muted">More projects in progress</span>
-          </>
-        )}
+        {STATUSES.map((s) => (
+          <span key={s.value}><span className={`timeline-legend-dot status-bg-${s.value}`} />{s.label}</span>
+        ))}
       </div>
     </div>
   )

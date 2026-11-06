@@ -4,10 +4,12 @@ import { Check, UserMinus, UserPlus } from 'lucide-react'
 import {
   acceptFriendRequest, getFriendshipWith, removeFriendship, sendFriendRequest,
 } from '../../lib/friends.js'
+import { useNotifications } from '../../context/NotificationsContext.jsx'
 
 export default function FriendButton({ me, other, onChange }) {
   const [friendship, setFriendship] = useState(undefined) // undefined = still loading
   const [error, setError] = useState('')
+  const { refreshRequests, friendshipsVersion } = useNotifications()
 
   async function reload() {
     const found = await getFriendshipWith(other.id)
@@ -15,13 +17,15 @@ export default function FriendButton({ me, other, onChange }) {
     onChange?.(found)
   }
 
-  useEffect(() => { reload().catch((err) => setError(err.message)) }, [other.id]) // eslint-disable-line react-hooks/exhaustive-deps
+  // Reload when viewing someone new, or when a friendship changes live
+  useEffect(() => { reload().catch((err) => setError(err.message)) }, [other.id, friendshipsVersion]) // eslint-disable-line react-hooks/exhaustive-deps
 
   async function run(action) {
     setError('')
     try {
       await action()
       await reload()
+      refreshRequests() // keep the Friends badge in sync
     } catch (err) {
       setError(err.message)
     }

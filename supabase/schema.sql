@@ -293,6 +293,13 @@ create table public.projects (
   finish_date   date,
   made_for      text check (char_length(made_for) <= 100),          -- "Who it's for"
   pattern_url   text check (pattern_url is null or pattern_url ~* '^https?://'),
+  -- Small icon + color picked when creating a project (names the app maps to an icon/color)
+  icon          text not null default 'yarn' constraint projects_icon_format check (icon ~ '^[a-z0-9-]{1,40}$'),
+  color         text not null default 'berry' constraint projects_color_format check (color ~ '^[a-z]{1,20}$'),
+  -- Description is visible to friends (private notes are in project_notes)
+  description   text constraint projects_description_length check (description is null or char_length(description) <= 5000),
+  -- 1 (beginner) to 5 (expert), optional
+  difficulty    smallint constraint projects_difficulty_range check (difficulty is null or difficulty between 1 and 5),
   created_at    timestamptz not null default now(),
   updated_at    timestamptz not null default now(),
   check (finish_date is null or finish_date >= start_date)
@@ -381,10 +388,15 @@ create table public.project_materials (
   gauge         text,                                  -- e.g. '22 sts x 30 rows = 10cm'
   size          text,                                  -- e.g. '4.0 mm', 'US 6'
   notes         text,
+  -- 'to_buy' = still need to get it (shows on the home shopping list), 'owned' = have it
+  status        text not null default 'owned' constraint project_materials_status_valid check (status in ('to_buy', 'owned')),
+  sort_order    smallint not null default 0,
+  quantity      integer not null default 1 constraint project_materials_quantity_min check (quantity between 1 and 9999), -- "Amount" in the app
   created_at    timestamptz not null default now()
 );
 
 create index project_materials_project_idx on public.project_materials (project_id);
+create index project_materials_to_buy_idx on public.project_materials (project_id) where status = 'to_buy';
 
 alter table public.project_materials enable row level security;
 
@@ -393,6 +405,33 @@ create policy "materials: read" on public.project_materials for select to authen
 create policy "materials: write own" on public.project_materials for all to authenticated
   using      (exists (select 1 from public.projects p where p.id = project_id and p.user_id = auth.uid()))
   with check (exists (select 1 from public.projects p where p.id = project_id and p.user_id = auth.uid()));
+
+
+-- ---------------------------------------------------------------------
+-- 7b. Material costs (PRIVATE: owner only). Separate table because friends
+--     can see materials, and RLS works per row, not per column.
+--     One row per material that has a cost; cost is the price for ONE
+--     (the app multiplies by project_materials.quantity).
+-- ---------------------------------------------------------------------
+create table public.material_costs (
+  material_id uuid primary key references public.project_materials(id) on delete cascade,
+  user_id     uuid not null default auth.uid() references public.profiles(id) on delete cascade,
+  cost        numeric(10, 2) not null check (cost >= 0)
+);
+
+alter table public.material_costs enable row level security;
+
+create policy "material costs: owner only" on public.material_costs for all to authenticated
+  using (user_id = auth.uid())
+  with check (
+    user_id = auth.uid()
+    and exists (
+      select 1
+      from public.project_materials m
+      join public.projects p on p.id = m.project_id
+      where m.id = material_id and p.user_id = auth.uid()
+    )
+  );
 
 
 -- ---------------------------------------------------------------------
@@ -440,6 +479,32 @@ create policy "photos: write own" on public.project_photos for all to authentica
   with check (
     user_id = auth.uid()
     and split_part(storage_path, '/', 1) = auth.uid()::text
+    and exists (select 1 from public.projects p where p.id = project_id and p.user_id = auth.uid())
+  );
+
+
+-- ---------------------------------------------------------------------
+-- 8b. Personal project notes (PRIVATE: owner only)
+--     Separate table because RLS works per row, not per column - a column
+--     on projects would be visible to friends.
+-- ---------------------------------------------------------------------
+create table public.project_notes (
+  project_id uuid primary key references public.projects(id) on delete cascade,
+  user_id    uuid not null default auth.uid() references public.profiles(id) on delete cascade,
+  notes      text not null default '' check (char_length(notes) <= 10000),
+  updated_at timestamptz not null default now()
+);
+
+create trigger project_notes_set_updated_at
+  before update on public.project_notes
+  for each row execute function public.set_updated_at();
+
+alter table public.project_notes enable row level security;
+
+create policy "notes: owner only" on public.project_notes for all to authenticated
+  using (user_id = auth.uid())
+  with check (
+    user_id = auth.uid()
     and exists (select 1 from public.projects p where p.id = project_id and p.user_id = auth.uid())
   );
 
@@ -542,3 +607,324 @@ create policy "project-photos: update own" on storage.objects for update to auth
   using (bucket_id = 'project-photos' and (storage.foldername(name))[1] = auth.uid()::text);
 create policy "project-photos: delete own" on storage.objects for delete to authenticated
   using (bucket_id = 'project-photos' and (storage.foldername(name))[1] = auth.uid()::text);
+
+
+-- ---------------------------------------------------------------------
+-- 12. Realtime: the app listens for friend request changes (badge and
+--     pop-up messages). Realtime respects RLS, so users only hear about
+--     their own friendships.
+-- ---------------------------------------------------------------------
+alter publication supabase_realtime add table public.friendships;
+
+
+-- ---------------------------------------------------------------------
+-- 13. Hearts, comments, and notifications (same as migrations/008)
+-- ---------------------------------------------------------------------
+-- ---------- Hearts ----------
+create table if not exists public.project_likes (
+  project_id uuid not null references public.projects(id) on delete cascade,
+  user_id    uuid not null default auth.uid() references public.profiles(id) on delete cascade,
+  created_at timestamptz not null default now(),
+  primary key (project_id, user_id) -- one heart per person per project
+);
+
+alter table public.project_likes enable row level security;
+
+-- Anyone who can see the project can see its hearts
+drop policy if exists "likes: read" on public.project_likes;
+create policy "likes: read" on public.project_likes for select to authenticated
+  using (exists (select 1 from public.projects p where p.id = project_id));
+-- Only friends of the owner can heart, and only as themselves
+drop policy if exists "likes: friends add" on public.project_likes;
+create policy "likes: friends add" on public.project_likes for insert to authenticated
+  with check (
+    user_id = auth.uid()
+    and exists (select 1 from public.projects p where p.id = project_id and public.is_friend(p.user_id))
+  );
+-- You can take back your own heart
+drop policy if exists "likes: remove own" on public.project_likes;
+create policy "likes: remove own" on public.project_likes for delete to authenticated
+  using (user_id = auth.uid());
+
+
+-- ---------- Comments ----------
+create table if not exists public.project_comments (
+  id         uuid primary key default gen_random_uuid(),
+  project_id uuid not null references public.projects(id) on delete cascade,
+  user_id    uuid not null default auth.uid() references public.profiles(id) on delete cascade,
+  body       text not null check (char_length(trim(body)) between 1 and 1000),
+  created_at timestamptz not null default now()
+);
+
+create index if not exists project_comments_project_idx on public.project_comments (project_id, created_at);
+
+alter table public.project_comments enable row level security;
+
+drop policy if exists "comments: read" on public.project_comments;
+create policy "comments: read" on public.project_comments for select to authenticated
+  using (exists (select 1 from public.projects p where p.id = project_id));
+-- Friends of the owner, and the owner, can comment (as themselves)
+drop policy if exists "comments: friends and owner add" on public.project_comments;
+create policy "comments: friends and owner add" on public.project_comments for insert to authenticated
+  with check (
+    user_id = auth.uid()
+    and exists (
+      select 1 from public.projects p
+      where p.id = project_id and (p.user_id = auth.uid() or public.is_friend(p.user_id))
+    )
+  );
+-- You can delete your own comments; the project owner can delete any comment on their project
+drop policy if exists "comments: delete own or on own project" on public.project_comments;
+create policy "comments: delete own or on own project" on public.project_comments for delete to authenticated
+  using (
+    user_id = auth.uid()
+    or exists (select 1 from public.projects p where p.id = project_id and p.user_id = auth.uid())
+  );
+
+
+-- ---------- Notifications ----------
+create table if not exists public.notifications (
+  id            bigint generated always as identity primary key,
+  recipient_id  uuid not null references public.profiles(id) on delete cascade,
+  actor_id      uuid not null references public.profiles(id) on delete cascade, -- who did it
+  type          text not null check (type in ('friend_request', 'friend_accepted', 'like', 'comment')),
+  project_id    uuid references public.projects(id) on delete cascade,
+  -- deleting the comment / friendship deletes its notification too
+  comment_id    uuid references public.project_comments(id) on delete cascade,
+  friendship_id bigint references public.friendships(id) on delete cascade,
+  created_at    timestamptz not null default now(),
+  read_at       timestamptz -- null = not seen yet (counts toward the badge)
+);
+
+create index if not exists notifications_recipient_idx on public.notifications (recipient_id, created_at desc);
+
+alter table public.notifications enable row level security;
+
+-- You only ever see, update (mark as read), or delete your own notifications.
+-- There's no insert policy: only the triggers below create them.
+drop policy if exists "notifications: read own" on public.notifications;
+create policy "notifications: read own" on public.notifications for select to authenticated
+  using (recipient_id = auth.uid());
+drop policy if exists "notifications: mark own read" on public.notifications;
+create policy "notifications: mark own read" on public.notifications for update to authenticated
+  using (recipient_id = auth.uid()) with check (recipient_id = auth.uid());
+drop policy if exists "notifications: delete own" on public.notifications;
+create policy "notifications: delete own" on public.notifications for delete to authenticated
+  using (recipient_id = auth.uid());
+
+revoke update on public.notifications from anon, authenticated;
+grant update (read_at) on public.notifications to authenticated;
+
+
+-- ---------- Triggers that create / remove notifications ----------
+-- "security definer" lets them write notifications for other people,
+-- which normal users can't do.
+
+-- Heart added -> tell the project owner (not if you heart your own)
+create or replace function public.notify_like()
+returns trigger language plpgsql security definer set search_path = '' as $$
+begin
+  insert into public.notifications (recipient_id, actor_id, type, project_id)
+  select p.user_id, new.user_id, 'like', new.project_id
+  from public.projects p
+  where p.id = new.project_id and p.user_id <> new.user_id;
+  return new;
+end; $$;
+
+-- Heart removed -> remove that notification
+create or replace function public.unnotify_like()
+returns trigger language plpgsql security definer set search_path = '' as $$
+begin
+  delete from public.notifications
+  where type = 'like' and project_id = old.project_id and actor_id = old.user_id;
+  return old;
+end; $$;
+
+-- Comment added -> tell the project owner (not if you comment on your own).
+-- Deleting the comment removes the notification automatically (comment_id cascade).
+create or replace function public.notify_comment()
+returns trigger language plpgsql security definer set search_path = '' as $$
+begin
+  insert into public.notifications (recipient_id, actor_id, type, project_id, comment_id)
+  select p.user_id, new.user_id, 'comment', new.project_id, new.id
+  from public.projects p
+  where p.id = new.project_id and p.user_id <> new.user_id;
+  return new;
+end; $$;
+
+-- Friend request sent -> tell the person it was sent to;
+-- request accepted -> tell the person who sent it.
+-- Cancel / decline / unfriend deletes the friendship, which removes these too.
+create or replace function public.notify_friendship()
+returns trigger language plpgsql security definer set search_path = '' as $$
+begin
+  if tg_op = 'INSERT' then
+    insert into public.notifications (recipient_id, actor_id, type, friendship_id)
+    values (new.addressee_id, new.requester_id, 'friend_request', new.id);
+  elsif new.status = 'accepted' and old.status = 'pending' then
+    insert into public.notifications (recipient_id, actor_id, type, friendship_id)
+    values (new.requester_id, new.addressee_id, 'friend_accepted', new.id);
+  end if;
+  return new;
+end; $$;
+
+drop trigger if exists project_likes_notify on public.project_likes;
+create trigger project_likes_notify after insert on public.project_likes
+  for each row execute function public.notify_like();
+
+drop trigger if exists project_likes_unnotify on public.project_likes;
+create trigger project_likes_unnotify after delete on public.project_likes
+  for each row execute function public.unnotify_like();
+
+drop trigger if exists project_comments_notify on public.project_comments;
+create trigger project_comments_notify after insert on public.project_comments
+  for each row execute function public.notify_comment();
+
+drop trigger if exists friendships_notify on public.friendships;
+create trigger friendships_notify after insert or update of status on public.friendships
+  for each row execute function public.notify_friendship();
+
+
+-- ---------- Live updates ----------
+-- Lets the app hear about new / removed notifications right away (badge + pop-ups).
+do $$
+begin
+  if not exists (
+    select 1 from pg_publication_tables
+    where pubname = 'supabase_realtime' and schemaname = 'public' and tablename = 'notifications'
+  ) then
+    alter publication supabase_realtime add table public.notifications;
+  end if;
+end $$;
+
+
+-- ---------------------------------------------------------------------
+-- 14. Admin dashboard and feedback (same as migrations/009)
+-- ---------------------------------------------------------------------
+-- ---------- Last active ----------
+-- Supabase records each user's last LOGIN (auth.users.last_sign_in_at), but
+-- people stay logged in for weeks, so we also record when they last OPENED
+-- the app. The app calls touch_last_seen() once each time it starts.
+alter table public.profiles add column if not exists last_seen_at timestamptz;
+
+create or replace function public.touch_last_seen()
+returns void
+language sql
+security definer
+set search_path = ''
+as $$
+  update public.profiles set last_seen_at = now() where id = auth.uid();
+$$;
+grant execute on function public.touch_last_seen() to authenticated;
+
+
+-- ---------- Admin: list every user with email and login dates ----------
+-- Emails and login times live in Supabase's private auth.users table, so
+-- this function reads them on the admin's behalf. Anyone without the
+-- 'users.manage' permission just gets an empty list.
+create or replace function public.admin_list_users()
+returns table (
+  id uuid,
+  email text,
+  username text,
+  display_name text,
+  avatar_path text,
+  created_at timestamptz,
+  last_sign_in_at timestamptz,
+  last_seen_at timestamptz
+)
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select p.id, u.email::text, p.username, p.display_name, p.avatar_path,
+         p.created_at, u.last_sign_in_at, p.last_seen_at
+  from public.profiles p
+  join auth.users u on u.id = p.id
+  where public.has_permission('users.manage')
+  order by p.created_at;
+$$;
+grant execute on function public.admin_list_users() to authenticated;
+
+
+-- ---------- Bug reports and change requests ----------
+create table if not exists public.feedback_reports (
+  id         uuid primary key default gen_random_uuid(),
+  user_id    uuid not null default auth.uid() references public.profiles(id) on delete cascade,
+  kind       text not null check (kind in ('bug', 'change')),
+  title      text not null check (char_length(trim(title)) between 1 and 120),
+  details    text check (details is null or char_length(details) <= 4000),
+  -- the admin moves these through a mini kanban
+  status     text not null default 'new' check (status in ('new', 'planned', 'in_progress', 'done')),
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create index if not exists feedback_reports_status_idx on public.feedback_reports (status, created_at);
+
+drop trigger if exists feedback_reports_set_updated_at on public.feedback_reports;
+create trigger feedback_reports_set_updated_at
+  before update on public.feedback_reports
+  for each row execute function public.set_updated_at();
+
+alter table public.feedback_reports enable row level security;
+
+-- Anyone logged in can send a report (as themselves)
+drop policy if exists "feedback: send" on public.feedback_reports;
+create policy "feedback: send" on public.feedback_reports for insert to authenticated
+  with check (user_id = auth.uid() and status = 'new');
+-- You see your own reports; admins with feedback.manage see all of them
+drop policy if exists "feedback: read own or manager" on public.feedback_reports;
+create policy "feedback: read own or manager" on public.feedback_reports for select to authenticated
+  using (user_id = auth.uid() or public.has_permission('feedback.manage'));
+-- Only managers can move reports between columns or delete them
+drop policy if exists "feedback: manager updates" on public.feedback_reports;
+create policy "feedback: manager updates" on public.feedback_reports for update to authenticated
+  using (public.has_permission('feedback.manage')) with check (public.has_permission('feedback.manage'));
+drop policy if exists "feedback: manager deletes" on public.feedback_reports;
+create policy "feedback: manager deletes" on public.feedback_reports for delete to authenticated
+  using (public.has_permission('feedback.manage'));
+
+-- Updates can only change the status column
+revoke update on public.feedback_reports from anon, authenticated;
+grant update (status) on public.feedback_reports to authenticated;
+
+-- New permission, given to the admin role
+insert into public.permissions (key, description)
+values ('feedback.manage', 'Can see and manage bug reports and change requests')
+on conflict (key) do nothing;
+
+insert into public.role_permissions (role_id, permission_id)
+select r.id, p.id
+from public.roles r
+cross join public.permissions p
+where r.name = 'admin' and p.key = 'feedback.manage'
+on conflict do nothing;
+
+
+-- ---------------------------------------------------------------------
+-- 15. Guest feedback (same as migrations/010)
+-- ---------------------------------------------------------------------
+alter table public.feedback_reports alter column user_id drop not null;
+
+alter table public.feedback_reports
+  add column if not exists guest_name text,
+  add column if not exists guest_email text;
+
+-- Every report needs a sender: an account, or a guest name
+alter table public.feedback_reports drop constraint if exists feedback_reports_sender;
+alter table public.feedback_reports add constraint feedback_reports_sender
+  check (user_id is not null or (guest_name is not null and char_length(trim(guest_name)) between 1 and 60));
+
+-- If a guest gives an email, it has to look like one
+alter table public.feedback_reports drop constraint if exists feedback_reports_guest_email;
+alter table public.feedback_reports add constraint feedback_reports_guest_email
+  check (guest_email is null or (char_length(guest_email) <= 254 and guest_email ~* '^[^@\s]+@[^@\s]+\.[^@\s]+$'));
+
+-- Guests (not logged in) can send a report, with a name and no account
+drop policy if exists "feedback: guests send" on public.feedback_reports;
+create policy "feedback: guests send" on public.feedback_reports for insert to anon
+  with check (user_id is null and status = 'new' and guest_name is not null);
+
+grant insert on public.feedback_reports to anon;

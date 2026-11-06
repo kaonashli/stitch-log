@@ -50,6 +50,9 @@ export function AuthProvider({ children }) {
       return
     }
     let cancelled = false
+    // Remember when this person last opened the app (shown to admins).
+    // Errors are ignored: it's not something the user needs to know about.
+    supabase.rpc('touch_last_seen').then(() => {}, () => {})
     loadUserData(userId).then(async (loadedProfile) => {
       if (cancelled || !loadedProfile) return
       // Upload an avatar picked during signup (see images.js for why).

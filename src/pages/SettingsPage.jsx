@@ -1,7 +1,7 @@
 // Edit your display name, username, and profile image.
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
-import { ChevronRight, LogOut, Shield } from 'lucide-react'
+import { ChevronLeft, ChevronRight, LogOut, Shield } from 'lucide-react'
 import { supabase } from '../lib/supabase.js'
 import { avatarUrl, deleteAvatarFile, uploadAvatar } from '../lib/images.js'
 import { useAuth } from '../context/AuthContext.jsx'
@@ -64,6 +64,7 @@ export default function SettingsPage() {
 
   return (
     <div className="narrow">
+      <Link to="/profile" className="back-link"><ChevronLeft size={16} /> Profile</Link>
       <div className="page-header">
         <h1>Settings</h1>
       </div>
