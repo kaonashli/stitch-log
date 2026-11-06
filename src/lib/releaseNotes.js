@@ -24,12 +24,13 @@ export const RELEASES = [
         items: [
           'When a friend starts a new project, it shows up in your friend activity, with its photo if it has one.',
           "Heart and comment on your friends' projects right from the friend activity, without opening the project.",
+          "Tag friends in comments: start typing a friend's name (or type @) and pick them from the suggestions. Tags are highlighted as you write. You can tag friends who are also friends with the project's owner, and they get a notification.",
         ],
       },
       {
         heading: 'Your projects',
         items: [
-          "Pick one of your photos as a project's main image: tap the star on it, and it shows instead of the icon.",
+          "Pick one of your photos as a project's main image: tap the star on it, and it shows instead of the icon, including on your project board.",
           'Deleted a project by mistake? Deleted projects go to "Recently deleted" at the bottom of My projects for 30 days, so you can bring them back. Each one shows the date it will be gone for good.',
           "Deleted projects disappear from your friends' activity right away.",
           "Make a project private with the switch at the top of the form. Only you can see it, but it still counts in the project numbers on your profile.",

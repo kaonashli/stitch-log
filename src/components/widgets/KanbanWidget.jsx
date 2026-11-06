@@ -137,7 +137,10 @@ export default function KanbanWidget({ projects, canDrag, onStatusChange, settin
                     onContextMenu={(e) => { if (canDrag) e.preventDefault() }} // no long-press menu on Android
                     onClick={(e) => { if (touch.justDragged()) e.preventDefault() }}
                   >
-                    <ProjectIcon icon={project.icon} color={project.color} size={26} />
+                    {/* Starred main image if there is one, otherwise the project's icon */}
+                    {project.coverUrl
+                      ? <img className="kanban-card-photo" src={project.coverUrl} alt="" loading="lazy" />
+                      : <ProjectIcon icon={project.icon} color={project.color} size={26} />}
                     <span className="kanban-card-text">
                       <strong>{project.title}</strong>
                       <small className="muted">{project.craft_types?.name}</small>
@@ -153,7 +156,9 @@ export default function KanbanWidget({ projects, canDrag, onStatusChange, settin
       {/* The card that follows your finger during a touch drag */}
       {touch.ghost && (
         <div className="drag-ghost" style={{ left: touch.ghost.x, top: touch.ghost.y }} aria-hidden="true">
-          <ProjectIcon icon={touch.ghost.item.icon} color={touch.ghost.item.color} size={26} />
+          {touch.ghost.item.coverUrl
+            ? <img className="kanban-card-photo" src={touch.ghost.item.coverUrl} alt="" />
+            : <ProjectIcon icon={touch.ghost.item.icon} color={touch.ghost.item.color} size={26} />}
           <strong>{touch.ghost.item.title}</strong>
         </div>
       )}

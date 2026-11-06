@@ -8,24 +8,36 @@ import { useEffect, useState } from 'react'
 import { ArrowDown, ArrowUp, GripVertical, Plus, SlidersHorizontal, X } from 'lucide-react'
 import { supabase } from '../../lib/supabase.js'
 import { toLocalDateString, todayLocal } from '../../lib/dates.js'
+import { getPhotoUrls } from '../../lib/images.js'
 import { WIDGET_TYPES } from '../../lib/constants.js'
 import Spinner from '../Spinner.jsx'
 import ErrorMessage from '../ErrorMessage.jsx'
 import KanbanWidget from './KanbanWidget.jsx'
 import CalendarWidget from './CalendarWidget.jsx'
 
-// Load a user's projects plus their status history (both widgets need it).
+// Load a user's projects plus their status history (both widgets need it),
+// and a link to each project's starred main image, if it has one.
 async function loadProjects(userId) {
   const { data, error } = await supabase
     .from('projects')
-    .select('id, title, status, start_date, finish_date, icon, color, craft_types(name), project_status_history(status, changed_at)')
+    .select('id, title, status, start_date, finish_date, icon, color, craft_types(name), project_status_history(status, changed_at), project_photos(storage_path, is_cover)')
     .eq('user_id', userId)
     .is('deleted_at', null) // skip projects in Recently deleted
     .order('start_date', { ascending: false })
   if (error) throw error
+
+  // Main images are private photos, so ask for short-lived links to them
+  const coverPaths = {}
+  for (const p of data) {
+    const cover = p.project_photos.find((photo) => photo.is_cover)
+    if (cover) coverPaths[p.id] = cover.storage_path
+  }
+  const urls = await getPhotoUrls(Object.values(coverPaths))
+
   // Add a sorted "history" list with local dates, used by the calendar
   return data.map((p) => ({
     ...p,
+    coverUrl: coverPaths[p.id] ? urls[coverPaths[p.id]] : null, // starred main image, or null
     history: p.project_status_history
       .map((h) => ({ status: h.status, day: toLocalDateString(new Date(h.changed_at)), at: h.changed_at }))
       .sort((a, b) => a.at.localeCompare(b.at)),

@@ -29,16 +29,47 @@ export async function removeHeart(projectId, userId) {
 export async function loadComments(projectId) {
   const { data, error } = await supabase
     .from('project_comments')
-    .select(`id, body, created_at, user_id, author:profiles!project_comments_user_id_fkey(${PROFILE_FIELDS})`)
+    .select(`id, body, created_at, user_id, author:profiles!project_comments_user_id_fkey(${PROFILE_FIELDS}), mentions:comment_mentions(user:profiles(id, username))`)
     .eq('project_id', projectId)
     .order('created_at')
   if (error) throw error
   return data
 }
 
-export async function addComment(projectId, body) {
-  const { error } = await supabase.from('project_comments').insert({ project_id: projectId, body })
+// Post a comment. mentionIds = people tagged in it (see extractMentions).
+// The database checks each tag is allowed and notifies the tagged people.
+export async function addComment(projectId, body, mentionIds = []) {
+  const { data, error } = await supabase
+    .from('project_comments')
+    .insert({ project_id: projectId, body })
+    .select('id')
+    .single()
   if (error) throw error
+  if (mentionIds.length) {
+    const { error: mentionError } = await supabase
+      .from('comment_mentions')
+      .insert(mentionIds.map((userId) => ({ comment_id: data.id, user_id: userId })))
+    if (mentionError) throw mentionError
+  }
+}
+
+// People I'm allowed to tag in a comment on this project: friends of mine
+// who are also friends with the project's owner (mention_candidates() in the database)
+export async function loadMentionCandidates(projectId) {
+  const { data, error } = await supabase.rpc('mention_candidates', { project: projectId })
+  if (error) return []
+  return data
+}
+
+// Find the "@username" tags in a comment that match people I can tag.
+// Returns their ids (each person once).
+export function extractMentions(body, candidates) {
+  const ids = new Set()
+  for (const match of body.matchAll(/@([A-Za-z0-9_]{3,20})/g)) {
+    const person = candidates.find((c) => c.username.toLowerCase() === match[1].toLowerCase())
+    if (person) ids.add(person.id)
+  }
+  return [...ids]
 }
 
 export async function deleteComment(commentId) {

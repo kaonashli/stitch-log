@@ -8,7 +8,9 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Heart, MessageCircle, Send, Trash2 } from 'lucide-react'
-import { addComment, addHeart, checkIsFriend, deleteComment, loadComments, loadHearts, removeHeart } from '../lib/social.js'
+import { addComment, addHeart, checkIsFriend, deleteComment, extractMentions, loadComments, loadHearts, removeHeart } from '../lib/social.js'
+import MentionInput from './MentionInput.jsx'
+import CommentText from './CommentText.jsx'
 import { timeAgo } from '../lib/dates.js'
 import Avatar from './Avatar.jsx'
 
@@ -18,6 +20,7 @@ export default function ProjectSocial({ project, me }) {
   const [hearts, setHearts] = useState([])
   const [comments, setComments] = useState([])
   const [draft, setDraft] = useState('')
+  const [taggable, setTaggable] = useState([]) // people who can be @tagged here
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
 
@@ -72,7 +75,7 @@ export default function ProjectSocial({ project, me }) {
     setBusy(true)
     setError('')
     try {
-      await addComment(project.id, body)
+      await addComment(project.id, body, extractMentions(body, taggable))
       setDraft('')
       setComments(await loadComments(project.id))
     } catch (err) {
@@ -139,7 +142,7 @@ export default function ProjectSocial({ project, me }) {
                   </button>
                 )}
               </div>
-              <p className="prose">{c.body}</p>
+              <CommentText comment={c} />
             </div>
           </li>
         ))}
@@ -147,12 +150,15 @@ export default function ProjectSocial({ project, me }) {
 
       {canComment && (
         <form onSubmit={handleComment} className="comment-form">
-          <textarea
+          <MentionInput
+            multiline
+            projectId={project.id}
+            value={draft}
+            onChange={setDraft}
+            onCandidates={setTaggable}
             rows={2}
             maxLength={1000}
-            placeholder={isOwner ? 'Reply to your friends...' : 'Say something nice...'}
-            value={draft}
-            onChange={(e) => setDraft(e.target.value)}
+            placeholder={isOwner ? 'Reply to your friends... (type @ to tag someone)' : 'Say something nice... (type @ to tag someone)'}
             aria-label="Write a comment"
           />
           <button className="btn btn-primary" disabled={busy || !draft.trim()}>

@@ -48,6 +48,12 @@ export function describeNotification(n) {
         text: `${name} commented on ${project}: "${snippet(n.comment?.body)}"`,
         link: `/projects/${n.project_id}#comments`,
       }
+    case 'mention':
+      return {
+        title: 'You were tagged',
+        text: `${name} mentioned you in a comment on ${project}: "${snippet(n.comment?.body)}"`,
+        link: `/projects/${n.project_id}#comments`,
+      }
     case 'friend_request':
       return { title: 'New friend request', text: `${name} sent you a friend request.`, link: '/friends' }
     case 'feedback': {

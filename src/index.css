@@ -1289,3 +1289,66 @@ html.app-locked, html.app-locked body { height: 100%; overflow: hidden; }
 .feed-send { color: var(--primary); flex-shrink: 0; }
 .feed-send:disabled { color: var(--muted); opacity: 0.5; }
 @media (prefers-reduced-motion: reduce) { .feed-action-hearted svg { animation: none; } }
+
+/* ---------- @tags in comments ---------- */
+.mention-wrap { position: relative; flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.mention-wrap-grow { flex: 1; }
+.mention-menu {
+  position: absolute;
+  bottom: calc(100% + 6px); /* open upward, above the box (the keyboard is below on phones) */
+  left: 0;
+  right: 0;
+  z-index: 20;
+  max-height: 240px;
+  overflow-y: auto;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  box-shadow: 0 10px 28px rgb(0 0 0 / 16%);
+  padding: 0.3rem;
+}
+.mention-option {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  width: 100%;
+  padding: 0.45rem 0.55rem;
+  border: none;
+  border-radius: 8px;
+  background: none;
+  font: inherit;
+  color: var(--text);
+  text-align: left;
+  cursor: pointer;
+}
+.mention-option-active, .mention-option:hover { background: var(--primary-soft); }
+.mention-empty { padding: 0.6rem; font-size: 0.85rem; color: var(--muted); }
+.mention { color: var(--primary); font-weight: 600; }
+.notification-type-mention { background: var(--primary); }
+/* Starred main image on a project board card (same size as the icon) */
+.kanban-card-photo { width: 26px; height: 26px; border-radius: 28%; object-fit: cover; flex-shrink: 0; }
+
+/* Tag highlighting inside comment boxes: an exact copy of the text sits
+   behind the (see-through) box, with tags marked. See MentionInput.jsx. */
+.mention-wrap { background: var(--surface); border-radius: 8px; }
+.mention-wrap-grow { border-radius: 999px; }
+.mention-backdrop {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+  color: transparent; /* only the marks are visible */
+  border-style: solid;
+  border-color: transparent;
+  white-space: pre-wrap;
+  overflow-wrap: break-word;
+}
+.mention-wrap-single .mention-backdrop { white-space: pre; }
+.mention-field { position: relative; background: transparent !important; }
+.mention-mark {
+  color: transparent;
+  background: color-mix(in srgb, var(--primary) 22%, transparent);
+  border-radius: 4px;
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--primary) 22%, transparent);
+}
+.mention-menu-title { padding: 0.3rem 0.55rem 0.2rem; font-size: 0.75rem; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; }

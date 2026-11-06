@@ -7,7 +7,9 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Heart, MessageCircle, Send, Trash2 } from 'lucide-react'
-import { addComment, deleteComment, loadComments } from '../lib/social.js'
+import { addComment, deleteComment, extractMentions, loadComments } from '../lib/social.js'
+import MentionInput from './MentionInput.jsx'
+import CommentText from './CommentText.jsx'
 import { timeAgo } from '../lib/dates.js'
 import Avatar from './Avatar.jsx'
 
@@ -15,6 +17,7 @@ export default function FeedSocial({ projectId, me, hearted, heartCount, comment
   const [open, setOpen] = useState(false)
   const [comments, setComments] = useState(null) // null = not loaded yet
   const [draft, setDraft] = useState('')
+  const [taggable, setTaggable] = useState([]) // people who can be @tagged here
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
 
@@ -37,7 +40,7 @@ export default function FeedSocial({ projectId, me, hearted, heartCount, comment
     setBusy(true)
     setError('')
     try {
-      await addComment(projectId, body)
+      await addComment(projectId, body, extractMentions(body, taggable))
       setDraft('')
       setComments(await loadComments(projectId))
       onCommentCountChange(1)
@@ -102,17 +105,20 @@ export default function FeedSocial({ projectId, me, hearted, heartCount, comment
                     </button>
                   )}
                 </div>
-                <p className="prose">{c.body}</p>
+                <CommentText comment={c} />
               </div>
             </div>
           ))}
 
           <form onSubmit={handlePost} className="feed-comment-form">
-            <input
-              maxLength={1000}
-              placeholder="Write a comment..."
+            <MentionInput
+              projectId={projectId}
               value={draft}
-              onChange={(e) => setDraft(e.target.value)}
+              onChange={setDraft}
+              onCandidates={setTaggable}
+              className="mention-wrap-grow"
+              maxLength={1000}
+              placeholder="Write a comment... (@ to tag)"
               aria-label="Write a comment"
             />
             <button className="icon-btn feed-send" disabled={busy || !draft.trim()} aria-label="Post comment">
