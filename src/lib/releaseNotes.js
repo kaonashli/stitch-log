@@ -14,10 +14,10 @@ export const IN_DEVELOPMENT = true
 
 export const RELEASES = [
   {
-    version: null, // not released yet
-    date: null,
-    title: 'Coming next',
-    intro: 'Already working in the app, and part of the next version.',
+    version: '0.2.0',
+    date: '2026-11-06',
+    title: 'Badges, widgets, and lots more',
+    intro: 'A big update! Earn badges, show off your projects with new widgets, reply to comments, and keep track of who you make things for. Still a beta, so keep the ideas coming.',
     sections: [
       {
         heading: 'Home',
@@ -40,8 +40,9 @@ export const RELEASES = [
         heading: 'Badges',
         items: [
           'Earn badges on your profile: your first project started and finished, knitting and crochet milestones (1, 5, 10, 15, 20, and 30 projects), quick finishes, gifts for others, friends, and a few surprises. Each one has its own little picture.',
-          'Your badges have their own widget at the top of your profile. Tap a badge to see what it is for, and "All badges" to see the ones still to earn.',
+          'Your badges have their own widget at the top of your profile. Tap a badge to see what it is for. "All badges" shows the ones still to earn as secret outlines, so each new badge is a surprise.',
           'Earn a new badge and you get a congratulations pop-up and a notification.',
+          'Your badges are shown in the order you earned them.',
         ],
       },
       {
@@ -51,7 +52,7 @@ export const RELEASES = [
           'Focus project: star the project you are most proud of (or busiest with) on its page, and show it off.',
           'Made for: how many projects you have made for each person.',
           'Favorite fibers: the fibers you use the most.',
-          'The project timeline can now show the last 2 or 5 years, and pauses are striped so they stand out, with how many days each project was paused.',
+          'The project timeline can now show the last 2 or 5 years, and pauses are striped so they stand out, with how many days each project was paused. No more odd gaps between a start and a finish.',
           'Tap a column title on your project board (like "Idea") to open all those projects on their own page, where you can add, move, edit, or delete them.',
         ],
       },
@@ -68,7 +69,7 @@ export const RELEASES = [
           'Finished or frogged a project? Answer a few wrap-up questions: would you make it again, how much you enjoyed it, the skills you learned, and who you would recommend it to (you can tag friends). Each answer can be for friends or just for you.',
           'Ideas get a planned start date (or none). When an idea moves on, its start date becomes today. Moving a project to Finished sets its finish date to today.',
           'Not sure how much yarn you need? Set the amount to "Unsure".',
-          'Pick the fiber of your yarn and string (wool, cotton, acrylic...), or several for a blend.',
+          'Pick the fiber of your yarn and string from a full list of knitting and crochet fibers: wool and sheep breeds like merino and Shetland, alpaca, mohair, silk, cotton, linen, bamboo, acrylic, and many more. Pick several for a blend.',
           'Costs show with a simple "$".',
         ],
       },
@@ -76,6 +77,7 @@ export const RELEASES = [
         heading: 'On your phone',
         items: [
           "Steadier on phones: no more zooming in when you tap a box or save, and the screen stays put.",
+          'On your profile, Settings is now a little gear in the top-right corner, so your status sits right under your name.',
         ],
       },
     ],

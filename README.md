@@ -109,7 +109,7 @@ src/
 
 ## Release notes
 
-Current version: **0.1.0** (beta), released November 5, 2026.
+Current version: **0.2.0** (beta), released November 6, 2026.
 
 - In the app: the **Release notes** page (`/release-notes`, open to everyone, linked from the login page and the home page). Its plain-language content is in [`src/lib/releaseNotes.js`](src/lib/releaseNotes.js).
 - For developers: [CHANGELOG.md](CHANGELOG.md).

@@ -560,6 +560,12 @@ input[type='checkbox'] { width: 18px; height: 18px; accent-color: var(--primary)
   .profile-header .avatar { width: 64px !important; height: 64px !important; }
   .profile-actions { flex-basis: 100%; }
   .profile-actions .btn { width: 100%; }
+  /* Your own profile: Settings becomes a small round icon button in the top-right corner */
+  .profile-header:has(.profile-actions-corner) { position: relative; }
+  .profile-header:has(.profile-actions-corner) .profile-names { padding-right: 2.5rem; }
+  .profile-actions.profile-actions-corner { position: absolute; top: 0.75rem; right: 0.75rem; flex-basis: auto; }
+  .profile-actions-corner .profile-settings-btn { width: 40px; height: 40px; padding: 0; justify-content: center; border-radius: 50%; }
+  .profile-settings-label { display: none; }
 }
 
 .person-list { display: flex; flex-direction: column; gap: 0.25rem; }
@@ -1446,7 +1452,10 @@ html.app-locked, html.app-locked body { height: 100%; overflow: hidden; }
 .wrapup-list .prose { margin: 0; }
 
 /* Materials: fibers + "Unsure" amount */
-.fiber-chips { display: flex; flex-wrap: wrap; gap: 0.3rem; }
+.fiber-chips { display: flex; flex-wrap: wrap; align-items: center; gap: 0.3rem; }
+.fiber-chips .chip svg { margin-left: 0.15rem; }
+.fiber-groups { display: flex; flex-direction: column; gap: 0.6rem; margin-top: 0.5rem; padding: 0.75rem; border-radius: 10px; background: var(--surface-2); }
+.fiber-group { display: flex; flex-direction: column; gap: 0.3rem; }
 .chip.chip-sm { font-size: 0.8rem; padding: 0.25rem 0.65rem; }
 .amount-row { display: flex; align-items: center; gap: 0.5rem; }
 .amount-row input[type="number"] { flex: 1; min-width: 0; }
@@ -1557,7 +1566,7 @@ html.app-locked, html.app-locked body { height: 100%; overflow: hidden; }
 @media (hover: hover) { .badge-tile:hover { background: var(--surface-2); } }
 .badge-tile-name { font-size: 0.74rem; font-weight: 600; text-align: center; line-height: 1.2; }
 .badge-icon { display: block; filter: drop-shadow(0 2px 3px rgb(60 40 30 / 18%)); }
-.badge-icon-locked { filter: grayscale(1); opacity: 0.35; }
+.badge-icon-secret { color: var(--muted); opacity: 0.55; filter: none; }
 .badge-detail { margin: 0; font-size: 0.9rem; padding: 0.5rem 0.75rem; border-radius: 10px; background: var(--surface-2); }
 
 /* Congratulations pop-up for a new badge (BadgeWatcher) */

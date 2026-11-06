@@ -58,8 +58,14 @@ export function statusOnDay(project, day, today) {
     const first = project.history[0]?.status ?? project.status
     return done(first) ? 'in_progress' : first
   }
-  // After finishing/frogging, the project no longer shows up
-  if (done(entry.status)) return entry.day === day ? entry.status : null
+  // Marked finished/frogged in the history, but this day is still before the
+  // end of the bar (e.g. the finish date was changed later). There must be no
+  // gap between start and finish, so count it as in progress. Only the last
+  // day shows how it ended (when there's a finish date, that's handled above).
+  if (done(entry.status)) {
+    if (!project.finish_date && entry.day === day) return entry.status
+    return 'in_progress'
+  }
   return entry.status
 }
 

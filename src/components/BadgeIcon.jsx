@@ -259,9 +259,20 @@ function Picture({ family, level }) {
   }
 }
 
-// badge = an entry from BADGES (lib/badges.js); earned = false draws it faded
+// badge = an entry from BADGES (lib/badges.js)
+// earned = false draws it as a SECRET: just the dashed outline of its frame
+// with a question mark, so badges you haven't earned stay a surprise.
 export default function BadgeIcon({ badge, earned = true, size = 56 }) {
   const id = useId()
+
+  if (!earned) {
+    return (
+      <svg className="badge-icon badge-icon-secret" width={size} height={size} viewBox="0 0 64 64" role="img" aria-label="Secret badge">
+        <Frame family={badge.family} fill="none" stroke="currentColor" strokeWidth="2" strokeDasharray="4 3" />
+        <text x="32" y="40" textAnchor="middle" fontSize="22" fontWeight="800" fill="currentColor" fontFamily="inherit">?</text>
+      </svg>
+    )
+  }
   const leveled = Boolean(badge.ribbon)
   const [frame, inner, edge] = leveled
     ? TIERS[Math.min(badge.level - 1, TIERS.length - 1)]
@@ -269,7 +280,7 @@ export default function BadgeIcon({ badge, earned = true, size = 56 }) {
 
   return (
     <svg
-      className={`badge-icon ${earned ? '' : 'badge-icon-locked'}`}
+      className="badge-icon"
       width={size}
       height={size}
       viewBox="0 0 64 64"

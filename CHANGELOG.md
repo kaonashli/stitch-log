@@ -4,6 +4,10 @@ All notable changes to Stitch Log are listed here, newest first.
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-11-06
+
+A big update: badges, new profile widgets, replies, wrap-up questions, and much more. Still a beta.
+
 ### Added
 - Home feed: when a friend starts a new project, it appears as a card with the project's main image or first photo (or its icon and color if it has no photos), its status, and craft type.
 - Home feed: every friend activity card has a heart button and a comment button. Heart or un-heart right there, and open the project's comments inline to read, add, or delete your own.
@@ -23,23 +27,25 @@ All notable changes to Stitch Log are listed here, newest first.
 - "Who it's for" takes chips: tag yourself or friends, or type any name and press Enter to make it a category (names you've used before are suggested). Old "Who it's for" text was moved over.
 - Several links per project, each with an optional title and a public (friends) / private switch; public by default. The old pattern link was moved over as a link titled "Pattern".
 - Wrap-up questions for finished and frogged projects: would I make this again, enjoyment level, skills learned, and who I'd recommend it to (with friend tags). Each answer is public (friends) or private.
-- Material amount can be "Unsure". Yarn and string have a Fiber field with a list of fibers; pick several for a blend.
+- Material amount can be "Unsure". Yarn and string have a Fiber field: the full list of knitting and crochet fibers (67 of them), grouped into wool and sheep breeds, other animal fibers, plant fibers, regenerated fibers, synthetic, and other (recycled, unknown). Pick several for a blend. The list stays folded away behind "Choose fibers" until you need it.
 - Replies to comments, on the project page and in the home feed; the person replied to gets a notification. Deleting a comment deletes its replies.
 - Focus project: star one project from its page, and show it off with the new Focus project widget.
 - New profile widgets: Project gallery (photo grid, 3 per row, up to 9 chosen projects, drag to reorder, "See more" for the rest), Focus project, Made for (projects per person), and Favorite fibers.
 - Project board column titles open a page with that status's projects, where you can add a project in that status, move projects to another status, edit, or delete them.
 - Project timeline ranges: 2 years and 5 years. Paused stretches are striped and each row says how many days the project was paused.
-- Badges on your profile, worked out from your projects and friends (deleting the projects that earned one removes it): First Project Started, First Project Completed, Knitter and Crocheter (1, 5, 10, 15, 20, 30 finished), Done Within a Year / 6 Months / a Month, Quick Knitter, Quick Crocheter (under a week), Slow and Steady (over a year), First Friend and Community (1, 3, 10, 20, 50 friends), Made with Love (1, 5, 10, 20 gifts), and Rip It, Rip It (more than 5 frogged). Each has its own picture; levels change color and show their number. Badges live in a Badges widget (added to the top of every profile, and to new members' default widgets). Earning a new badge shows a congratulations pop-up and adds a "New badge" notification; losing a badge removes its notification. Badges people already had when this arrived are recorded quietly, without notifications.
+- Badges on your profile, worked out from your projects and friends (deleting the projects that earned one removes it): First Project Started, First Project Completed, Knitter and Crocheter (1, 5, 10, 15, 20, 30 finished), Done Within a Year / 6 Months / a Month, Quick Knitter, Quick Crocheter (under a week), Slow and Steady (over a year), First Friend and Community (1, 3, 10, 20, 50 friends), Made with Love (1, 5, 10, 20 gifts), and Rip It, Rip It (more than 5 frogged). Each has its own picture; levels change color and show their number. Earned badges are shown in the order you earned them. Unearned badges stay secret: "All badges" shows only a dashed outline of each one with "???", and no name or description. Badges live in a Badges widget (added to the top of every profile, and to new members' default widgets). Earning a new badge shows a congratulations pop-up and adds a "New badge" notification; losing a badge removes its notification. Badges people already had when this arrived are recorded quietly, without notifications.
 
 ### Changed
 - Ideas have an optional planned start date. Moving a project out of Idea sets its start date to today (and it's required from then on); moving to Finished sets the finish date to today. Same rules on the board, the status dropdown, the status page, and the project form.
 - Costs show "$" instead of "US$".
+- On phones, the Settings button on your own profile is a round icon in the top-right corner of the profile card, so your status sits right under your name.
 - Deleted projects are hidden from everyone else immediately, including friend activity, profiles, hearts, and comments.
 - Admin dashboard project count includes private projects.
 
 ### Fixed
 - Phones no longer zoom in when tapping small dropdowns or text boxes (all inputs are 16px on touch screens), double-tap zoom is off, and the page itself no longer shifts while using the app.
 - My Projects shows a project's icon unless you've starred a main image (it used to show the first photo automatically).
+- Project timeline: no more gaps between a project's start and finish (e.g. when the finish date was changed after marking it Finished). Any day in between with no clear status counts as In progress.
 
 ## [0.1.0] - 2026-11-05
 
@@ -111,5 +117,6 @@ The first release of Stitch Log. It's a beta: things may still change.
 - The home feed is a basic first version; its full design is still to be decided.
 - Notifications only appear while the app is open. Phone notifications when the app is closed are not built yet.
 
-[Unreleased]: https://github.com/kaonashli/stitch-log/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/kaonashli/stitch-log/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/kaonashli/stitch-log/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/kaonashli/stitch-log/releases/tag/v0.1.0

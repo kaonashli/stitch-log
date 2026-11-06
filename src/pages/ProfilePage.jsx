@@ -92,8 +92,14 @@ export default function ProfilePage() {
             </span>
           )}
         </div>
-        <div className="profile-actions">
-          {ownView && <Link to="/settings" className="btn btn-ghost"><Settings size={16} /> Settings</Link>}
+        {/* On phones your Settings button sits in the top-right corner (icon only),
+            so your status bubble stays right under your name */}
+        <div className={`profile-actions ${ownView ? 'profile-actions-corner' : ''}`}>
+          {ownView && (
+            <Link to="/settings" className="btn btn-ghost profile-settings-btn" aria-label="Settings" title="Settings">
+              <Settings size={16} /> <span className="profile-settings-label">Settings</span>
+            </Link>
+          )}
           {!isOwn && <FriendButton me={me} other={profile} onChange={(f) => setIsFriend(f?.status === 'accepted')} />}
         </div>
         {/* Status / About me: everyone can see it (it helps people decide to add you).

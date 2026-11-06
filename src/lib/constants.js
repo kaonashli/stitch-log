@@ -120,11 +120,50 @@ export const VIEW_AS_LABELS = {
   stranger: 'a stranger',
 }
 
-// Fibers for yarn and string. You can pick several for a blend.
-export const FIBERS = [
-  'Acrylic', 'Alpaca', 'Angora', 'Bamboo', 'Cashmere', 'Cotton', 'Hemp', 'Linen', 'Merino',
-  'Mohair', 'Nylon', 'Polyester', 'Silk', 'Wool', 'Yak', 'Other',
+// Fibers for yarn and string, grouped like a yarn shop would. You can pick
+// several for a blend. (Names already saved on materials stay as they are,
+// so only ADD names here; don't rename ones people may have picked.)
+export const FIBER_GROUPS = [
+  {
+    label: 'Wool and sheep breeds',
+    fibers: [
+      'Wool', 'Merino', 'Lambswool', 'Bluefaced Leicester', 'Corriedale', 'Cormo', 'Icelandic',
+      'Jacob', 'Gotland', 'Polwarth', 'Rambouillet', 'Romney', 'Shetland', 'Targhee', 'Wensleydale',
+    ],
+  },
+  {
+    label: 'Other animal fibers',
+    fibers: [
+      'Alpaca', 'Baby Alpaca', 'Suri Alpaca', 'Llama', 'Cashmere', 'Mohair', 'Kid Mohair', 'Angora',
+      'Camel', 'Yak', 'Qiviut', 'Bison', 'Possum', 'Vicuna', 'Guanaco', 'Silk', 'Tussah Silk', 'Wild Silk',
+    ],
+  },
+  {
+    label: 'Plant fibers',
+    fibers: [
+      'Cotton', 'Pima Cotton', 'Organic Cotton', 'Mercerized Cotton', 'Linen', 'Hemp', 'Ramie',
+      'Jute', 'Sisal', 'Raffia', 'Nettle', 'Bamboo',
+    ],
+  },
+  {
+    label: 'Made from plants (regenerated)',
+    fibers: ['Rayon / Viscose', 'Bamboo Viscose', 'Modal', 'Lyocell / Tencel', 'Cupro', 'Soy Silk', 'Milk Fiber', 'Seacell', 'Corn (PLA)'],
+  },
+  {
+    label: 'Synthetic',
+    fibers: [
+      'Acrylic', 'Nylon', 'Polyester', 'Microfiber', 'Polypropylene', 'Spandex / Elastane',
+      'Metallic / Lurex', 'Recycled Polyester', 'Recycled Nylon',
+    ],
+  },
+  {
+    label: 'Other',
+    fibers: ['Recycled Cotton', 'Recycled Wool', 'Unknown', 'Other'],
+  },
 ]
+
+// Every fiber in one list
+export const FIBERS = FIBER_GROUPS.flatMap((g) => g.fibers)
 
 // "Who it's for" written as a name: these mean yourself
 export function isSelfName(name) {

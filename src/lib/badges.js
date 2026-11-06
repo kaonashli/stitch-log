@@ -124,6 +124,26 @@ export async function loadBadgeStats(userId) {
   return error ? null : data
 }
 
+// When each badge was earned (you or a friend): Map of badge id -> date string.
+// Empty if migration 019 hasn't been run or you're not allowed.
+export async function loadBadgeDates(userId) {
+  const { data, error } = await supabase.rpc('badge_earned_dates', { target: userId })
+  return new Map(error ? [] : (data ?? []).map((row) => [row.badge_id, row.earned_at]))
+}
+
+// Put badges in the order they were earned (first earned first). Badges
+// with no date yet go at the end; ties keep the normal BADGES order.
+export function sortByEarned(badges, dates) {
+  return [...badges].sort((a, b) => {
+    const da = dates.get(a.id)
+    const db = dates.get(b.id)
+    if (da && db) return da.localeCompare(db)
+    if (da) return -1
+    if (db) return 1
+    return 0
+  })
+}
+
 // Check your own badges and tell the database which ones you have now.
 // Returns the badges that are NEW since the last check (the database also
 // creates a "New badge" notification for each one). Badges you lost

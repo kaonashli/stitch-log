@@ -1669,3 +1669,22 @@ begin
 end;
 $$;
 grant execute on function public.sync_badges(text[]) to authenticated;
+
+
+-- ---------------------------------------------------------------------
+-- 22. Badge earned dates (same as migrations/019)
+-- ---------------------------------------------------------------------
+-- Your badges' earned dates, or a friend's. Anyone else gets nothing.
+create or replace function public.badge_earned_dates(target uuid)
+returns table (badge_id text, earned_at timestamptz)
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select ub.badge_id, ub.earned_at
+  from public.user_badges ub
+  where ub.user_id = target
+    and (target = auth.uid() or public.is_friend(target));
+$$;
+grant execute on function public.badge_earned_dates(uuid) to authenticated;

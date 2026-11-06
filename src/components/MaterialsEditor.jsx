@@ -13,9 +13,10 @@
 import { useState } from 'react'
 import { ArrowDownUp, GripVertical, Trash2 } from 'lucide-react'
 import {
-  FIBERS, MATERIAL_FIELDS, MATERIAL_SECTIONS, MATERIAL_TYPES, YARN_WEIGHTS, formatMoney, hasCost, materialLineCost,
+  MATERIAL_FIELDS, MATERIAL_SECTIONS, MATERIAL_TYPES, YARN_WEIGHTS, formatMoney, hasCost, materialLineCost,
 } from '../lib/constants.js'
 import { useTouchDrag } from '../lib/useTouchDrag.js'
+import FiberPicker from './FiberPicker.jsx'
 
 const MATERIAL_DRAG_TYPE = 'application/x-stitchlog-material'
 
@@ -147,28 +148,13 @@ export default function MaterialsEditor({ materials, onChange }) {
                     {type.fields.map((field) => {
                       const info = MATERIAL_FIELDS[field]
 
-                      // Fiber: tap one or more (a blend), tap again to remove
+                      // Fiber: pick one or more (a blend) from the grouped list
                       if (field === 'fibers') {
                         const picked = material.fibers ?? []
                         return (
                           <div key={field} className="field field-wide">
                             <span>{info.label} {picked.length > 1 && <small className="muted">(blend)</small>}</span>
-                            <div className="fiber-chips">
-                              {FIBERS.map((fiber) => {
-                                const on = picked.includes(fiber)
-                                return (
-                                  <button
-                                    key={fiber}
-                                    type="button"
-                                    className={`chip chip-sm ${on ? 'chip-active' : ''}`}
-                                    aria-pressed={on}
-                                    onClick={() => updateMaterial(material.key, 'fibers', on ? picked.filter((f) => f !== fiber) : [...picked, fiber])}
-                                  >
-                                    {fiber}
-                                  </button>
-                                )
-                              })}
-                            </div>
+                            <FiberPicker value={picked} onChange={(list) => updateMaterial(material.key, 'fibers', list)} />
                           </div>
                         )
                       }
