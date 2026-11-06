@@ -1,4 +1,5 @@
-// "My projects": a grid of your projects with a status filter.
+// "My projects": a grid of your projects with a status filter, and the
+// "Recently deleted" box at the bottom.
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Plus } from 'lucide-react'
@@ -12,6 +13,7 @@ import ProjectIcon from '../components/ProjectIcon.jsx'
 import { colorVar } from '../lib/projectLooks.js'
 import Spinner from '../components/Spinner.jsx'
 import ErrorMessage from '../components/ErrorMessage.jsx'
+import RecentlyDeleted from '../components/RecentlyDeleted.jsx'
 
 export default function ProjectsPage() {
   const { user } = useAuth()
@@ -20,6 +22,7 @@ export default function ProjectsPage() {
   const [filter, setFilter] = useState('all')
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const [reloadKey, setReloadKey] = useState(0) // bump to reload (e.g. after a restore)
 
   useEffect(() => {
     async function load() {
@@ -27,8 +30,9 @@ export default function ProjectsPage() {
       // craft_type_id foreign key, project_photos(...) gets each project's photos.
       const { data, error } = await supabase
         .from('projects')
-        .select('id, title, status, start_date, finish_date, icon, color, craft_types(name), project_photos(storage_path, sort_order)')
+        .select('id, title, status, start_date, finish_date, icon, color, craft_types(name), project_photos(storage_path, sort_order, is_cover)')
         .eq('user_id', user.id)
+        .is('deleted_at', null) // deleted ones are in "Recently deleted" below
         .order('start_date', { ascending: false })
 
       if (error) {
@@ -39,11 +43,11 @@ export default function ProjectsPage() {
       setProjects(data)
       setLoading(false)
 
-      // Use the first photo of each project as its cover
+      // Projects with a starred "main image" show that photo; the rest show their icon
       const covers = {}
       for (const project of data) {
-        const sorted = [...project.project_photos].sort((a, b) => a.sort_order - b.sort_order)
-        if (sorted[0]) covers[project.id] = sorted[0].storage_path
+        const cover = project.project_photos.find((p) => p.is_cover)
+        if (cover) covers[project.id] = cover.storage_path
       }
       const urls = await getPhotoUrls(Object.values(covers))
       const byProject = {}
@@ -51,7 +55,7 @@ export default function ProjectsPage() {
       setCoverUrls(byProject)
     }
     load()
-  }, [user.id])
+  }, [user.id, reloadKey])
 
   const shown = filter === 'all' ? projects : projects.filter((p) => p.status === filter)
 
@@ -86,7 +90,7 @@ export default function ProjectsPage() {
       <div className="project-grid">
         {shown.map((project) => (
           <Link key={project.id} to={`/projects/${project.id}`} className="project-card card">
-            {/* First photo as the cover; no photos = the project's icon on its color */}
+            {/* The starred main image, or the project's icon on its color */}
             <div className="project-card-cover" style={{ '--pc': colorVar(project.color) }}>
               {coverUrls[project.id]
                 ? <img src={coverUrls[project.id]} alt="" loading="lazy" />
@@ -105,6 +109,8 @@ export default function ProjectsPage() {
           </Link>
         ))}
       </div>
+
+      <RecentlyDeleted userId={user.id} reloadKey={reloadKey} onRestored={() => setReloadKey((k) => k + 1)} />
     </div>
   )
 }

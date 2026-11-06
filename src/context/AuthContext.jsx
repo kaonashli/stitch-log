@@ -3,6 +3,7 @@
 import { createContext, useContext, useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase.js'
 import { uploadPendingAvatar } from '../lib/images.js'
+import { purgeExpiredProjects } from '../lib/trash.js'
 
 const AuthContext = createContext(null)
 
@@ -53,6 +54,9 @@ export function AuthProvider({ children }) {
     // Remember when this person last opened the app (shown to admins).
     // Errors are ignored: it's not something the user needs to know about.
     supabase.rpc('touch_last_seen').then(() => {}, () => {})
+    // Delete for good any of your projects that have been in "Recently deleted"
+    // for 30+ days (photos included). Runs quietly in the background.
+    purgeExpiredProjects(userId).catch(() => {})
     loadUserData(userId).then(async (loadedProfile) => {
       if (cancelled || !loadedProfile) return
       // Upload an avatar picked during signup (see images.js for why).

@@ -75,7 +75,7 @@ export default function AdminPage() {
       supabase.from('permissions').select('*').order('key'),
       supabase.from('user_roles').select('*'),
       supabase.from('role_permissions').select('*'),
-      supabase.from('projects').select('id', { count: 'exact', head: true }),
+      supabase.from('projects').select('id', { count: 'exact', head: true }).is('deleted_at', null),
       supabase.from('feedback_reports').select('id', { count: 'exact', head: true }).neq('status', 'done'),
       supabase.from('feedback_reports').select('id', { count: 'exact', head: true }).eq('status', 'new'),
     ])

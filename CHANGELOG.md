@@ -4,7 +4,14 @@ All notable changes to Stitch Log are listed here, newest first.
 
 ## [Unreleased]
 
-Nothing yet.
+### Added
+- Home feed: when a friend starts a new project, it appears as a card with the project's main image or first photo (or its icon and color if it has no photos), its status, and craft type.
+- Main image: star one of a project's photos to show it instead of the project's icon (My Projects, the project page, and friend activity).
+- Recently deleted: deleting a project moves it to "Recently deleted" at the bottom of My Projects for 30 days, showing the date it will be deleted for good. Restore it or delete it forever any time before then. Expired projects (and their photos) are removed automatically.
+
+### Changed
+- Deleted projects are hidden from everyone else immediately, including friend activity, profiles, hearts, and comments.
+- My Projects shows a project's icon unless you've starred a main image (it used to show the first photo automatically).
 
 ## [0.1.0] - 2026-11-05
 

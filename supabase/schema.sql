@@ -300,12 +300,15 @@ create table public.projects (
   description   text constraint projects_description_length check (description is null or char_length(description) <= 5000),
   -- 1 (beginner) to 5 (expert), optional
   difficulty    smallint constraint projects_difficulty_range check (difficulty is null or difficulty between 1 and 5),
+  -- Soft delete: set = in "Recently deleted" (only the owner sees it; gone for good after 30 days)
+  deleted_at    timestamptz,
   created_at    timestamptz not null default now(),
   updated_at    timestamptz not null default now(),
   check (finish_date is null or finish_date >= start_date)
 );
 
 create index projects_user_idx on public.projects (user_id);
+create index projects_deleted_idx on public.projects (user_id, deleted_at) where deleted_at is not null;
 
 create trigger projects_set_updated_at
   before update on public.projects
@@ -313,12 +316,15 @@ create trigger projects_set_updated_at
 
 alter table public.projects enable row level security;
 
--- You, your friends, and admins with projects.view_all can see a project
+-- You always see your own projects (even deleted ones, to restore them).
+-- Friends and admins with projects.view_all see them only while not deleted.
 create policy "projects: read" on public.projects for select to authenticated
   using (
     user_id = auth.uid()
-    or public.is_friend(user_id)
-    or public.has_permission('projects.view_all')
+    or (
+      deleted_at is null
+      and (public.is_friend(user_id) or public.has_permission('projects.view_all'))
+    )
   );
 create policy "projects: insert own" on public.projects for insert to authenticated
   with check (user_id = auth.uid());
@@ -445,10 +451,13 @@ create table public.project_photos (
   user_id      uuid not null default auth.uid() references public.profiles(id) on delete cascade,
   storage_path text not null unique,
   sort_order   smallint not null default 0,
+  is_cover     boolean not null default false, -- the project's main image (shown instead of its icon)
   created_at   timestamptz not null default now()
 );
 
 create index project_photos_project_idx on public.project_photos (project_id, sort_order);
+-- Only one photo per project can be the main image
+create unique index project_photos_one_cover on public.project_photos (project_id) where is_cover;
 
 create or replace function public.enforce_photo_limit()
 returns trigger

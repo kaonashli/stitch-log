@@ -20,6 +20,7 @@ async function loadProjects(userId) {
     .from('projects')
     .select('id, title, status, start_date, finish_date, icon, color, craft_types(name), project_status_history(status, changed_at)')
     .eq('user_id', userId)
+    .is('deleted_at', null) // skip projects in Recently deleted
     .order('start_date', { ascending: false })
   if (error) throw error
   // Add a sorted "history" list with local dates, used by the calendar

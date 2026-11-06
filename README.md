@@ -9,7 +9,7 @@ Built with React (Vite) and Supabase (Postgres, Auth, Storage). Works on desktop
 ## Features
 
 - **Accounts** - sign up with email and password, a display name, a unique username, and an optional profile picture. Light and dark mode.
-- **Projects** - title, a small icon and color of your choice, craft type (knitting or crochet), status (idea, in progress, paused, finished, frogged), start and finish dates, who it's for, a pattern link, up to 10 photos, a description your friends can read, and private personal notes.
+- **Projects** - title, a small icon and color of your choice, craft type (knitting or crochet), status (idea, in progress, paused, finished, frogged), start and finish dates, who it's for, a pattern link, up to 10 photos (star one to use as the main image), a description your friends can read, and private personal notes. Deleted projects wait in "Recently deleted" for 30 days so they can be restored.
 - **Materials** - any number per project: yarn (brand, color, weight, yardage, gauge), needles or hooks (size), string, stuffing, and buttons (color). Sorted into "To buy" and "In my stash" with drag and drop. Each has an amount and an optional cost, which add up to the project's total cost (costs are private to you).
 - **Difficulty** - rate projects from Beginner to Expert.
 - **Photos** - resized and compressed in the browser before upload (about 300 KB each) to stay within Supabase's free storage.

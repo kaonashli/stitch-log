@@ -14,6 +14,28 @@ export const IN_DEVELOPMENT = true
 
 export const RELEASES = [
   {
+    version: null, // not released yet
+    date: null,
+    title: 'Coming next',
+    intro: 'Already working in the app, and part of the next version.',
+    sections: [
+      {
+        heading: 'Home',
+        items: [
+          'When a friend starts a new project, it shows up in your friend activity, with its photo if it has one.',
+        ],
+      },
+      {
+        heading: 'Your projects',
+        items: [
+          "Pick one of your photos as a project's main image: tap the star on it, and it shows instead of the icon.",
+          'Deleted a project by mistake? Deleted projects go to "Recently deleted" at the bottom of My projects for 30 days, so you can bring them back. Each one shows the date it will be gone for good.',
+          "Deleted projects disappear from your friends' activity right away.",
+        ],
+      },
+    ],
+  },
+  {
     version: '0.1.0', // the first release (beta)
     date: '2026-11-05',
     title: 'The first release',

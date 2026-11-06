@@ -42,6 +42,9 @@ export default function ProjectFormPage() {
   const [existingPhotos, setExistingPhotos] = useState([])
   const [removedPhotos, setRemovedPhotos] = useState([])
   const [addedPhotos, setAddedPhotos] = useState([])
+  // The photo shown as the project's main image instead of its icon:
+  // a saved photo's id, a new photo's key, or null (= show the icon)
+  const [coverKey, setCoverKey] = useState(null)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState('') // text shown while saving, '' when idle
   const [error, setError] = useState('')
@@ -60,7 +63,7 @@ export default function ProjectFormPage() {
 
       const { data: project, error } = await supabase
         .from('projects')
-        .select('*, project_materials(*, material_costs(cost)), project_photos(id, storage_path, sort_order)')
+        .select('*, project_materials(*, material_costs(cost)), project_photos(id, storage_path, sort_order, is_cover)')
         .eq('id', id)
         .single()
 
@@ -105,6 +108,7 @@ export default function ProjectFormPage() {
       const photos = project.project_photos.sort((a, b) => a.sort_order - b.sort_order)
       const urls = await getPhotoUrls(photos.map((p) => p.storage_path))
       setExistingPhotos(photos.map((p) => ({ ...p, url: urls[p.storage_path] })))
+      setCoverKey(photos.find((p) => p.is_cover)?.id ?? null)
       setLoading(false)
     }
     load()
@@ -199,6 +203,17 @@ export default function ProjectFormPage() {
         await deleteProjectPhotoFiles(removedPhotos.map((p) => p.storage_path))
       }
 
+      // 3b. Main image: clear the old one first (only one is allowed), then mark
+      //     the chosen saved photo. A chosen NEW photo is marked as it's uploaded below.
+      if (isEdit) {
+        const { error } = await supabase.from('project_photos').update({ is_cover: false }).eq('project_id', projectId).eq('is_cover', true)
+        if (error) throw error
+      }
+      if (coverKey && existingPhotos.some((p) => p.id === coverKey)) {
+        const { error } = await supabase.from('project_photos').update({ is_cover: true }).eq('id', coverKey)
+        if (error) throw error
+      }
+
       // 4. New photos: compress + upload one at a time, then record each in the database
       let sortOrder = existingPhotos.length
       for (let i = 0; i < addedPhotos.length; i++) {
@@ -206,7 +221,7 @@ export default function ProjectFormPage() {
         const path = await uploadProjectPhoto(user.id, projectId, addedPhotos[i].file)
         const { error } = await supabase
           .from('project_photos')
-          .insert({ project_id: projectId, storage_path: path, sort_order: sortOrder++ })
+          .insert({ project_id: projectId, storage_path: path, sort_order: sortOrder++, is_cover: addedPhotos[i].key === coverKey })
         if (error) {
           await deleteProjectPhotoFiles([path]) // don't leave an orphan file behind
           throw error
@@ -311,12 +326,16 @@ export default function ProjectFormPage() {
             onRemoveExisting={(photo) => {
               setExistingPhotos(existingPhotos.filter((p) => p.id !== photo.id))
               setRemovedPhotos([...removedPhotos, photo])
+              if (coverKey === photo.id) setCoverKey(null) // removed the main image: back to the icon
             }}
             onAdd={(newOnes) => setAddedPhotos([...addedPhotos, ...newOnes])}
             onRemoveAdded={(photo) => {
               URL.revokeObjectURL(photo.previewUrl)
               setAddedPhotos(addedPhotos.filter((p) => p.key !== photo.key))
+              if (coverKey === photo.key) setCoverKey(null)
             }}
+            coverKey={coverKey}
+            onCoverChange={setCoverKey}
           />
         </section>
 

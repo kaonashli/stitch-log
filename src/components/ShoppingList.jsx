@@ -40,6 +40,7 @@ export default function ShoppingList({ userId }) {
         .select('id, material_type, brand, color, weight, yardage, size, notes, quantity, sort_order, material_costs(cost), projects!inner(id, title, icon, color, status, user_id)')
         .eq('status', 'to_buy')
         .eq('projects.user_id', userId)
+        .is('projects.deleted_at', null) // nothing to buy for deleted projects
       if (error) setError(error.message)
       setItems((data ?? []).map(withCost))
       setLoading(false)

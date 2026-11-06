@@ -2,9 +2,10 @@
 // Friends can see this page too; only the owner gets Edit / Delete.
 import { useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
-import { CalendarDays, Check, ChevronLeft, ChevronRight, ExternalLink, Gauge, Gift, Lock, Pencil, Trash2, X } from 'lucide-react'
+import { CalendarDays, Check, ChevronLeft, ChevronRight, ExternalLink, Gauge, Gift, Lock, Pencil, RotateCcw, Trash2, X } from 'lucide-react'
 import { supabase } from '../lib/supabase.js'
-import { deleteProjectPhotoFiles, getPhotoUrls } from '../lib/images.js'
+import { getPhotoUrls } from '../lib/images.js'
+import { DELETE_AFTER_DAYS, deleteForever, expiryDate, moveToTrash, restoreProject } from '../lib/trash.js'
 import { formatDate, todayLocal } from '../lib/dates.js'
 import {
   MATERIAL_FIELDS, MATERIAL_SECTIONS, MATERIAL_TYPES, STATUSES, formatMoney, hasCost, materialLineCost, withCost,
@@ -39,7 +40,7 @@ export default function ProjectDetailPage() {
           craft_types(name),
           owner:profiles!projects_user_id_fkey(id, username, display_name, avatar_path),
           project_materials(*, material_costs(cost)),
-          project_photos(id, storage_path, sort_order)
+          project_photos(id, storage_path, sort_order, is_cover)
         `)
         .eq('id', id)
         .maybeSingle()
@@ -64,13 +65,39 @@ export default function ProjectDetailPage() {
     load()
   }, [id, user.id])
 
+  // Delete = move to "Recently deleted". It disappears for everyone else right
+  // away, and is deleted for good after 30 days unless you restore it.
   async function handleDelete() {
-    if (!window.confirm(`Delete "${project.title}"? This cannot be undone.`)) return
-    // Remove the image files first; deleting the project removes all its rows (cascade)
-    await deleteProjectPhotoFiles(photos.map((p) => p.storage_path))
-    const { error } = await supabase.from('projects').delete().eq('id', project.id)
-    if (error) return setError(error.message)
-    navigate('/projects')
+    const message = `Delete "${project.title}"?
+
+It will be moved to Recently deleted (at the bottom of My projects) ` +
+      `and deleted for good after ${DELETE_AFTER_DAYS} days. You can restore it until then.`
+    if (!window.confirm(message)) return
+    try {
+      await moveToTrash(project.id)
+      navigate('/projects')
+    } catch (err) {
+      setError(err.message)
+    }
+  }
+
+  async function handleRestore() {
+    try {
+      await restoreProject(project.id)
+      setProject({ ...project, deleted_at: null })
+    } catch (err) {
+      setError(err.message)
+    }
+  }
+
+  async function handleDeleteForever() {
+    if (!window.confirm(`Delete "${project.title}" forever? This can't be undone.`)) return
+    try {
+      await deleteForever(project.id)
+      navigate('/projects')
+    } catch (err) {
+      setError(err.message)
+    }
   }
 
   // Quick status change for the owner (handy on phones, where kanban drag doesn't work)
@@ -89,6 +116,7 @@ export default function ProjectDetailPage() {
   if (!project) return <ErrorMessage message={error} />
 
   const isOwner = project.user_id === user.id
+  const coverPhoto = photos.find((p) => p.is_cover)
   const materials = [...project.project_materials]
     .sort((a, b) => a.sort_order - b.sort_order || a.created_at.localeCompare(b.created_at))
   // Total cost of all materials (cost each x amount), and how much of it is still to buy
@@ -110,10 +138,28 @@ export default function ProjectDetailPage() {
     <div className="narrow stack">
       <ErrorMessage message={error} />
 
+      {/* This project is in Recently deleted (only the owner can get here) */}
+      {project.deleted_at && (
+        <div className="deleted-banner">
+          <Trash2 size={18} />
+          <span>
+            <strong>This project is deleted.</strong> Only you can see it, and it will be deleted for good
+            on {expiryDate(project.deleted_at)}.
+          </span>
+          <span className="row">
+            <button className="btn btn-sm btn-primary" onClick={handleRestore}><RotateCcw size={14} /> Restore</button>
+            <button className="btn btn-sm btn-danger" onClick={handleDeleteForever}>Delete forever</button>
+          </span>
+        </div>
+      )}
+
       <div className="card stack">
         <div className="row-between wrap">
           <div className="project-title-row">
-            <ProjectIcon icon={project.icon} color={project.color} size={52} />
+            {/* The starred main image, or the project's icon */}
+            {coverPhoto?.url
+              ? <img className="project-cover-thumb" src={coverPhoto.url} alt="" />
+              : <ProjectIcon icon={project.icon} color={project.color} size={52} />}
             <div>
               <h1>{project.title}</h1>
               <div className="row muted">
@@ -136,7 +182,8 @@ export default function ProjectDetailPage() {
           {isOwner && (
             <div className="row">
               <Link to={`/projects/${project.id}/edit`} className="btn btn-ghost"><Pencil size={16} /> Edit</Link>
-              <button className="btn btn-danger" onClick={handleDelete}><Trash2 size={16} /> Delete</button>
+              {/* Already deleted? The banner at the top has Restore / Delete forever instead */}
+              {!project.deleted_at && <button className="btn btn-danger" onClick={handleDelete}><Trash2 size={16} /> Delete</button>}
             </div>
           )}
         </div>
