@@ -128,31 +128,36 @@ function TimelineSettings({ projects, settings, onSettingsChange }) {
 
   return (
     <div className="kanban-settings timeline-settings">
-      <div className="timeline-mode" role="radiogroup" aria-label="Which projects to show">
-        <label>
-          <input
-            type="radio"
-            name="timeline-mode"
-            checked={!picked}
-            onChange={() => {
-              const rest = { ...settings }
-              delete rest.projectIds
-              onSettingsChange(rest)
-            }}
-          />
-          All projects (new ones show up by themselves)
-        </label>
-        <label>
-          <input
-            type="radio"
-            name="timeline-mode"
-            checked={Boolean(picked)}
-            // start from what's shown now, oldest start first
-            onChange={() => save([...projects].filter((p) => p.start_date).sort((a, b) => a.start_date.localeCompare(b.start_date)))}
-          />
-          Only the ones I pick, in my order
-        </label>
+      {/* Two-option switch: all projects, or only the ones you pick */}
+      <div className="segmented" role="radiogroup" aria-label="Which projects to show">
+        <button
+          type="button"
+          role="radio"
+          aria-checked={!picked}
+          className={`segmented-option ${!picked ? 'segmented-option-on' : ''}`}
+          onClick={() => {
+            if (!picked) return
+            const rest = { ...settings }
+            delete rest.projectIds
+            onSettingsChange(rest)
+          }}
+        >
+          All projects
+        </button>
+        <button
+          type="button"
+          role="radio"
+          aria-checked={Boolean(picked)}
+          className={`segmented-option ${picked ? 'segmented-option-on' : ''}`}
+          // start from what's shown now, oldest start first
+          onClick={() => {
+            if (!picked) save([...projects].filter((p) => p.start_date).sort((a, b) => a.start_date.localeCompare(b.start_date)))
+          }}
+        >
+          Pick projects
+        </button>
       </div>
+      {!picked && <small className="muted">Every project, oldest first. New ones show up by themselves.</small>}
 
       {picked && (
         <>

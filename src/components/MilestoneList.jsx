@@ -19,6 +19,12 @@ import MilestoneProgress from './MilestoneProgress.jsx'
 
 const MILESTONE_DRAG_TYPE = 'application/x-stitchlog-milestone'
 
+// 'YYYY-MM-DD' -> a timestamp at noon that day (local time), for done_at
+function doneAtFor(dayString) {
+  const [y, m, d] = dayString.split('-').map(Number)
+  return new Date(y, m - 1, d, 12).toISOString()
+}
+
 // 'Mar 5' for this year's dates, 'Mar 5, 2027' otherwise
 function shortDay(dayString) {
   if (!dayString) return ''
@@ -33,7 +39,7 @@ export default function MilestoneList({ projectId, isOwner, onChange }) {
   const [title, setTitle] = useState('')
   const [dueDate, setDueDate] = useState('')
   const [showDate, setShowDate] = useState(false)
-  const [editing, setEditing] = useState(null) // { id, title, due_date } while editing one
+  const [editing, setEditing] = useState(null) // { id, title, isDone, date } while editing one
   const [mouseDragId, setMouseDragId] = useState(null)
   const [mouseOverId, setMouseOverId] = useState(null)
   const [error, setError] = useState('')
@@ -82,11 +88,29 @@ export default function MilestoneList({ projectId, isOwner, onChange }) {
     save(items.map((x) => (x.id === m.id ? { ...x, done_at } : x)), () => updateMilestone(m.id, { done_at }))
   }
 
+  // Start editing: a done milestone edits the day it was DONE, the others
+  // edit their target date
+  function startEditing(m) {
+    setEditing({
+      id: m.id,
+      title: m.title,
+      isDone: Boolean(m.done_at),
+      date: m.done_at ? toLocalDateString(new Date(m.done_at)) : (m.due_date ?? ''),
+    })
+  }
+
   function saveEdit(event) {
     event.preventDefault()
     const clean = editing.title.trim()
     if (!clean) return
-    const changes = { title: clean, due_date: editing.due_date || null }
+    const changes = { title: clean }
+    if (editing.isDone) {
+      // Store the chosen day at noon local time, so it shows as that same
+      // day in every time zone. An emptied box keeps it done today.
+      changes.done_at = editing.date ? doneAtFor(editing.date) : new Date().toISOString()
+    } else {
+      changes.due_date = editing.date || null
+    }
     const id = editing.id
     setEditing(null)
     save(items.map((x) => (x.id === id ? { ...x, ...changes } : x)), () => updateMilestone(id, changes))
@@ -150,12 +174,16 @@ export default function MilestoneList({ projectId, isOwner, onChange }) {
                     onChange={(e) => setEditing({ ...editing, title: e.target.value })}
                     aria-label="Milestone"
                   />
-                  <input
-                    type="date"
-                    value={editing.due_date ?? ''}
-                    onChange={(e) => setEditing({ ...editing, due_date: e.target.value })}
-                    aria-label="Target date"
-                  />
+                  <label className="ms-edit-date">
+                    <small className="muted">{editing.isDone ? 'Done on' : 'Target date'}</small>
+                    <input
+                      type="date"
+                      value={editing.date}
+                      max={editing.isDone ? todayLocal() : undefined} // can't be done in the future
+                      onChange={(e) => setEditing({ ...editing, date: e.target.value })}
+                      aria-label={editing.isDone ? 'Day it was done' : 'Target date'}
+                    />
+                  </label>
                   <span className="row">
                     <button type="button" className="icon-btn" onClick={() => setEditing(null)} aria-label="Cancel"><X size={16} /></button>
                     <button className="btn btn-xs btn-primary"><Check size={12} /> Save</button>
@@ -222,7 +250,7 @@ export default function MilestoneList({ projectId, isOwner, onChange }) {
                 {(m.done_at || m.due_date) && (
                   <small className={`ms-meta ${overdue ? 'ms-meta-late' : ''}`}>
                     {m.done_at
-                      ? <>Done {shortDay(toLocalDateString(new Date(m.done_at)))}</>
+                      ? <>Done {shortDay(toLocalDateString(new Date(m.done_at)))}{m.due_date && <span className="muted"> · planned for {shortDay(m.due_date)}</span>}</>
                       : <><CalendarDays size={11} /> {overdue ? 'Planned for' : 'By'} {shortDay(m.due_date)}</>}
                   </small>
                 )}
@@ -230,7 +258,7 @@ export default function MilestoneList({ projectId, isOwner, onChange }) {
 
               {isOwner && (
                 <span className="ms-actions">
-                  <button className="icon-btn" onClick={() => setEditing({ id: m.id, title: m.title, due_date: m.due_date })} aria-label={`Edit "${m.title}"`} title="Edit">
+                  <button className="icon-btn" onClick={() => startEditing(m)} aria-label={`Edit "${m.title}"`} title="Edit">
                     <Pencil size={14} />
                   </button>
                   <button className="icon-btn" onClick={() => remove(m)} aria-label={`Delete "${m.title}"`} title="Delete">
