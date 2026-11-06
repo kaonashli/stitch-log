@@ -14,6 +14,7 @@ import Logo from './Logo.jsx'
 import Avatar from './Avatar.jsx'
 import ThemeToggle from './ThemeToggle.jsx'
 import Toasts from './Toasts.jsx'
+import BadgeWatcher from './BadgeWatcher.jsx'
 
 // Little red number on an icon (hidden when there's nothing new)
 function CountBadge({ count }) {
@@ -122,6 +123,9 @@ export default function Layout() {
 
       {/* Pop-up messages at the top of the screen */}
       <Toasts />
+
+      {/* Congratulations pop-up when you earn a new badge */}
+      <BadgeWatcher />
     </div>
   )
 }

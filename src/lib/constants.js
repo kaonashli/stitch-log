@@ -104,6 +104,7 @@ export const MAX_PHOTOS = 10
 
 // Must match the check constraint on profile_widgets.widget_type.
 export const WIDGET_TYPES = {
+  badges: { label: 'Badges', description: 'The badges you have earned' },
   kanban: { label: 'Project board', description: 'Your projects in columns by status' },
   calendar: { label: 'Project timeline', description: 'When each project started and finished' },
   gallery: { label: 'Project gallery', description: 'Your favorite projects in a photo grid' },

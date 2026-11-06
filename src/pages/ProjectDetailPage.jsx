@@ -14,6 +14,7 @@ import {
   ENJOYMENT_LABELS, MAKE_AGAIN_OPTIONS, REFLECTION_FIELDS, hasWrapUp, linkLabel, loadLinks, loadRecipients, loadReflections,
 } from '../lib/projectExtras.js'
 import TaggedText from '../components/TaggedText.jsx'
+import { requestBadgeCheck } from '../lib/badges.js'
 import {
   MATERIAL_FIELDS, MATERIAL_SECTIONS, MATERIAL_TYPES, STATUSES, formatMoney, hasCost, materialLineCost, withCost,
 } from '../lib/constants.js'
@@ -127,6 +128,7 @@ It will be moved to Recently deleted (at the bottom of My projects) ` +
     const { error } = await supabase.from('projects').update(changes).eq('id', project.id)
     if (error) return setError(error.message)
     setProject({ ...project, ...changes })
+    requestBadgeCheck() // e.g. finishing a project can earn a badge
   }
 
   // Star / unstar this as your focus project (only one at a time)

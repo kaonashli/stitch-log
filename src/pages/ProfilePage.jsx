@@ -18,8 +18,8 @@ import Avatar from '../components/Avatar.jsx'
 import Spinner from '../components/Spinner.jsx'
 import FriendButton from '../components/friends/FriendButton.jsx'
 import WidgetBoard from '../components/widgets/WidgetBoard.jsx'
-import ProfileBadges from '../components/ProfileBadges.jsx'
 import FriendsOfList from '../components/FriendsOfList.jsx'
+import ProfileStatus from '../components/ProfileStatus.jsx'
 
 export default function ProfilePage() {
   const { username } = useParams()
@@ -96,18 +96,13 @@ export default function ProfilePage() {
           {ownView && <Link to="/settings" className="btn btn-ghost"><Settings size={16} /> Settings</Link>}
           {!isOwn && <FriendButton me={me} other={profile} onChange={(f) => setIsFriend(f?.status === 'accepted')} />}
         </div>
-        {/* About me: everyone can see it (it helps people decide to add you) */}
-        {profile.bio && <p className="profile-bio">{profile.bio}</p>}
-        {ownView && !profile.bio && (
-          <p className="profile-bio muted">
-            <Link to="/settings">Add a few words about yourself</Link> so friends know it's you.
-          </p>
-        )}
+        {/* Status / About me: everyone can see it (it helps people decide to add you).
+            Edit your own by tapping it. */}
+        <ProfileStatus profile={profile} editable={ownView} />
       </div>
 
       {canSeeDetails ? (
         <>
-          <ProfileBadges userId={profile.id} isOwn={ownView} />
           <FriendsOfList userId={profile.id} title={ownView ? 'Your friends' : 'Friends'} />
           <WidgetBoard userId={profile.id} editable={ownView} focusProjectId={profile.focus_project_id} />
         </>

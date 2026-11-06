@@ -101,6 +101,8 @@ export function NotificationsProvider({ children }) {
         async (payload) => {
           refreshUnread()
           setNotificationsVersion((v) => v + 1)
+          // New badges get their own congratulations pop-up (BadgeWatcher), not a toast
+          if (payload.new.type === 'badge') return
           const notification = await loadNotification(payload.new.id)
           if (!notification) return
           const { title, text, link } = describeNotification(notification)

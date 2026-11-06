@@ -10,6 +10,11 @@
 //   level  = 1, 2, 3... for badges that come in levels (shown as a ribbon number)
 //
 // To add a badge: add it here, and (for a new family) a picture in BadgeIcon.jsx.
+//
+// New badges: the database remembers which badges you already had
+// (user_badges, migration 018), so checkMyBadges() can tell when a new one
+// arrives. Then you get a notification and a congratulations pop-up.
+import { supabase } from './supabase.js'
 
 // Badges with levels: one badge per threshold
 function levels(family, thresholds, names, statKey, describe) {
@@ -108,6 +113,35 @@ export const BADGES = [
     earned: (s) => (s.frogged ?? 0) > 5,
   },
 ]
+
+export function badgeById(id) {
+  return BADGES.find((b) => b.id === id) ?? null
+}
+
+// The numbers behind the badges (you or a friend), or null if not allowed
+export async function loadBadgeStats(userId) {
+  const { data, error } = await supabase.rpc('profile_badge_stats', { target: userId })
+  return error ? null : data
+}
+
+// Check your own badges and tell the database which ones you have now.
+// Returns the badges that are NEW since the last check (the database also
+// creates a "New badge" notification for each one). Badges you lost
+// (deleted projects) are forgotten, along with their notification.
+export async function checkMyBadges(userId) {
+  const stats = await loadBadgeStats(userId)
+  if (!stats) return []
+  const ids = earnedBadges(stats).map((b) => b.id)
+  const { data, error } = await supabase.rpc('sync_badges', { earned: ids })
+  if (error) return []
+  return (data ?? []).map(badgeById).filter(Boolean)
+}
+
+// Ask for a badge check soon (after something that might earn one, like
+// finishing a project). The BadgeWatcher in the app frame listens for this.
+export function requestBadgeCheck() {
+  window.dispatchEvent(new Event('stitchlog:check-badges'))
+}
 
 // Which badges these stats earn. For badges with levels, the profile shows
 // the highest level of each family (and the rest in "All badges").

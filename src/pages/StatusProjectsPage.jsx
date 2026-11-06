@@ -13,6 +13,7 @@ import { formatDate } from '../lib/dates.js'
 import { STATUSES, statusLabel } from '../lib/constants.js'
 import { startDateLabel, statusChangeFields } from '../lib/projectStatus.js'
 import { DELETE_AFTER_DAYS, moveToTrash } from '../lib/trash.js'
+import { requestBadgeCheck } from '../lib/badges.js'
 import { useAuth } from '../context/AuthContext.jsx'
 import ProjectIcon from '../components/ProjectIcon.jsx'
 import Spinner from '../components/Spinner.jsx'
@@ -71,6 +72,7 @@ export default function StatusProjectsPage() {
     if (error) return setError(error.message)
     setProjects(projects.filter((p) => p.id !== project.id))
     setMessage(`Moved "${project.title}" to ${statusLabel(newStatus)}.`)
+    requestBadgeCheck() // e.g. finishing a project can earn a badge
   }
 
   async function deleteProject(project) {
@@ -79,6 +81,7 @@ export default function StatusProjectsPage() {
       await moveToTrash(project.id)
       setProjects(projects.filter((p) => p.id !== project.id))
       setMessage(`"${project.title}" was moved to Recently deleted.`)
+      requestBadgeCheck() // deleting can take a badge away
     } catch (err) {
       setError(err.message)
     }

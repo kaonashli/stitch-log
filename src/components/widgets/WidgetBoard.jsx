@@ -19,6 +19,8 @@ import GalleryWidget from './GalleryWidget.jsx'
 import FocusWidget from './FocusWidget.jsx'
 import MadeForWidget from './MadeForWidget.jsx'
 import FibersWidget from './FibersWidget.jsx'
+import BadgesWidget from './BadgesWidget.jsx'
+import { requestBadgeCheck } from '../../lib/badges.js'
 
 // Widgets that have a settings panel (opened with the sliders button)
 const WIDGETS_WITH_SETTINGS = {
@@ -165,6 +167,7 @@ export default function WidgetBoard({ userId, editable, focusProjectId = null })
     const { error } = await supabase.from('projects').update(changes).eq('id', project.id)
     if (error) return setError(error.message)
     setProjects(await loadProjects(userId)) // reload so the calendar sees the new history too
+    requestBadgeCheck() // e.g. finishing a project can earn a badge
   }
 
   if (loading) return <Spinner />
@@ -273,6 +276,7 @@ export default function WidgetBoard({ userId, editable, focusProjectId = null })
           {widget.widget_type === 'focus' && (
             <FocusWidget projects={projects} focusId={focusProjectId} editable={editable} />
           )}
+          {widget.widget_type === 'badges' && <BadgesWidget userId={userId} editable={editable} />}
           {widget.widget_type === 'made_for' && <MadeForWidget projects={projects} ownerId={userId} />}
           {widget.widget_type === 'fibers' && <FibersWidget projects={projects} />}
         </div>

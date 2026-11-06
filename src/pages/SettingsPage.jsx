@@ -13,7 +13,6 @@ export default function SettingsPage() {
   const { user, profile, refreshProfile, hasPermission, signOut } = useAuth()
   const [displayName, setDisplayName] = useState(profile.display_name)
   const [username, setUsername] = useState(profile.username)
-  const [bio, setBio] = useState(profile.bio ?? '') // "About me"
   const [avatarFile, setAvatarFile] = useState(null)
   const [removeAvatar, setRemoveAvatar] = useState(false)
   const [error, setError] = useState('')
@@ -34,7 +33,8 @@ export default function SettingsPage() {
 
     setBusy(true)
     try {
-      const changes = { display_name: cleanName, username: cleanUsername, bio: bio.trim() || null }
+      // (Your status / "About me" is edited right on your profile)
+      const changes = { display_name: cleanName, username: cleanUsername }
       const oldAvatar = profile.avatar_path
 
       if (avatarFile) {
@@ -87,17 +87,6 @@ export default function SettingsPage() {
         <label className="field">
           <span>Username</span>
           <input required maxLength={20} value={username} onChange={(e) => setUsername(e.target.value)} />
-        </label>
-        <label className="field">
-          <span>About me</span>
-          <textarea
-            rows={3}
-            maxLength={300}
-            value={bio}
-            onChange={(e) => setBio(e.target.value)}
-            placeholder="A few words about you and what you like to make"
-          />
-          <small className="field-hint">Shown on your profile and when people look you up to add you. {300 - bio.length} characters left.</small>
         </label>
         <label className="field">
           <span>Email</span>

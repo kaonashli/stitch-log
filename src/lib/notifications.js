@@ -1,6 +1,7 @@
 // Notifications: what to load, and how to turn one into words.
 // (The database creates them; see supabase/migrations/008.)
 import { supabase } from './supabase.js'
+import { badgeById } from './badges.js'
 
 // Everything a notification needs to be shown: who did it, which project,
 // the comment text, and the friend request's current status.
@@ -10,7 +11,8 @@ export const NOTIFICATION_FIELDS = `
   project:projects(id, title, icon, color),
   comment:project_comments(body),
   friendship:friendships(id, status),
-  feedback:feedback_reports(kind, title, guest_name)
+  feedback:feedback_reports(kind, title, guest_name),
+  user_badge:user_badges(badge_id)
 `
 
 export async function loadNotifications(userId) {
@@ -60,6 +62,15 @@ export function describeNotification(n) {
         text: `${name} replied to your comment on ${project}: "${snippet(n.comment?.body)}"`,
         link: `/projects/${n.project_id}#comments`,
       }
+    case 'badge': {
+      // You earned a badge (see lib/badges.js for the names)
+      const badge = badgeById(n.user_badge?.badge_id)
+      return {
+        title: 'New badge!',
+        text: badge ? `Congratulations! You earned the "${badge.name}" badge. ${badge.description}` : 'Congratulations! You earned a new badge.',
+        link: '/profile',
+      }
+    }
     case 'new_user':
       // For admins: someone just signed up
       return {

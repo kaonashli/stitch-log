@@ -5,13 +5,15 @@
 // a comment, it disappears from this list too (the database removes it).
 import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { AtSign, Bell, Bug, Check, Heart, MessageCircle, Reply, Sparkles, UserCheck, UserPlus } from 'lucide-react'
+import { AtSign, Award, Bell, Bug, Check, Heart, MessageCircle, Reply, Sparkles, UserCheck, UserPlus } from 'lucide-react'
 import { describeNotification, loadNotifications } from '../lib/notifications.js'
 import { acceptFriendRequest, removeFriendship } from '../lib/friends.js'
 import { timeAgo } from '../lib/dates.js'
 import { useAuth } from '../context/AuthContext.jsx'
 import { useNotifications } from '../context/NotificationsContext.jsx'
 import Avatar from '../components/Avatar.jsx'
+import BadgeIcon from '../components/BadgeIcon.jsx'
+import { badgeById } from '../lib/badges.js'
 import Spinner from '../components/Spinner.jsx'
 import ErrorMessage from '../components/ErrorMessage.jsx'
 
@@ -25,6 +27,7 @@ const TYPE_ICONS = {
   mention: AtSign,
   reply: Reply,
   new_user: Sparkles,
+  badge: Award,
 }
 
 export default function NotificationsPage() {
@@ -89,7 +92,10 @@ export default function NotificationsPage() {
             <li key={n.id} className={`card notification ${newIds.current.has(n.id) ? 'notification-new' : ''}`}>
               <Link to={link} className="notification-main">
                 <span className="notification-avatar">
-                  <Avatar profile={n.actor} size={42} />
+                  {/* Badges show the badge itself instead of a person */}
+                  {n.type === 'badge' && badgeById(n.user_badge?.badge_id)
+                    ? <BadgeIcon badge={badgeById(n.user_badge.badge_id)} size={42} />
+                    : <Avatar profile={n.actor} size={42} />}
                   <span className={`notification-type notification-type-${n.type}`}><TypeIcon size={12} /></span>
                 </span>
                 <span className="notification-text">

@@ -31,7 +31,7 @@ export const RELEASES = [
       {
         heading: 'Friends',
         items: [
-          'Add a few words "About me" in Settings. It shows on your profile and when people look you up to add you.',
+          'Set a status on your profile: tap the bubble under your name and write a few words about you or what you are making. Everyone can see it, including people looking you up to add you.',
           "See your friends' friends lists on their profiles.",
           'New here? You will find friend requests waiting from Buddy and the Stitch Log team.',
         ],
@@ -40,7 +40,8 @@ export const RELEASES = [
         heading: 'Badges',
         items: [
           'Earn badges on your profile: your first project started and finished, knitting and crochet milestones (1, 5, 10, 15, 20, and 30 projects), quick finishes, gifts for others, friends, and a few surprises. Each one has its own little picture.',
-          'Tap a badge to see what it is for, and "All badges" to see the ones still to earn.',
+          'Your badges have their own widget at the top of your profile. Tap a badge to see what it is for, and "All badges" to see the ones still to earn.',
+          'Earn a new badge and you get a congratulations pop-up and a notification.',
         ],
       },
       {
