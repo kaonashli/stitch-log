@@ -302,6 +302,8 @@ create table public.projects (
   difficulty    smallint constraint projects_difficulty_range check (difficulty is null or difficulty between 1 and 5),
   -- Soft delete: set = in "Recently deleted" (only the owner sees it; gone for good after 30 days)
   deleted_at    timestamptz,
+  -- Private: only the owner can see it (still counted in number-only stats)
+  is_private    boolean not null default false,
   created_at    timestamptz not null default now(),
   updated_at    timestamptz not null default now(),
   check (finish_date is null or finish_date >= start_date)
@@ -316,13 +318,15 @@ create trigger projects_set_updated_at
 
 alter table public.projects enable row level security;
 
--- You always see your own projects (even deleted ones, to restore them).
--- Friends and admins with projects.view_all see them only while not deleted.
+-- You always see your own projects (even deleted or private ones).
+-- Friends and admins with projects.view_all see them only while they're
+-- not deleted and not private.
 create policy "projects: read" on public.projects for select to authenticated
   using (
     user_id = auth.uid()
     or (
       deleted_at is null
+      and not is_private
       and (public.is_friend(user_id) or public.has_permission('projects.view_all'))
     )
   );
@@ -937,3 +941,71 @@ create policy "feedback: guests send" on public.feedback_reports for insert to a
   with check (user_id is null and status = 'new' and guest_name is not null);
 
 grant insert on public.feedback_reports to anon;
+
+
+-- ---------------------------------------------------------------------
+-- 16. Notify admins about new feedback (same as migrations/013)
+-- ---------------------------------------------------------------------
+alter table public.notifications alter column actor_id drop not null;
+
+alter table public.notifications
+  add column if not exists feedback_id uuid references public.feedback_reports(id) on delete cascade;
+
+alter table public.notifications drop constraint if exists notifications_type_check;
+alter table public.notifications add constraint notifications_type_check
+  check (type in ('friend_request', 'friend_accepted', 'like', 'comment', 'feedback'));
+
+create or replace function public.notify_feedback()
+returns trigger language plpgsql security definer set search_path = '' as $$
+begin
+  insert into public.notifications (recipient_id, actor_id, type, feedback_id)
+  select distinct ur.user_id, new.user_id, 'feedback', new.id
+  from public.user_roles ur
+  join public.role_permissions rp on rp.role_id = ur.role_id
+  join public.permissions p on p.id = rp.permission_id
+  join public.profiles pr on pr.id = ur.user_id
+  where p.key = 'feedback.manage'
+    and ur.user_id is distinct from new.user_id; -- not for your own reports
+  return new;
+end; $$;
+
+drop trigger if exists feedback_reports_notify on public.feedback_reports;
+create trigger feedback_reports_notify after insert on public.feedback_reports
+  for each row execute function public.notify_feedback();
+
+
+-- ---------------------------------------------------------------------
+-- 17. Project counts that include private projects (same as migrations/014)
+-- ---------------------------------------------------------------------
+-- Project counts for a profile (private ones included, deleted ones not).
+-- Only for yourself, your friends, or user managers; anyone else gets zeros.
+create or replace function public.profile_project_counts(target uuid)
+returns table (total bigint, in_progress bigint, finished bigint)
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select
+    count(*),
+    count(*) filter (where status = 'in_progress'),
+    count(*) filter (where status = 'finished')
+  from public.projects
+  where user_id = target
+    and deleted_at is null
+    and (target = auth.uid() or public.is_friend(target) or public.has_permission('users.manage'));
+$$;
+grant execute on function public.profile_project_counts(uuid) to authenticated;
+
+-- Total number of projects for the admin dashboard (private ones included)
+create or replace function public.admin_project_count()
+returns bigint
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select count(*) from public.projects
+  where deleted_at is null and public.has_permission('projects.view_all');
+$$;
+grant execute on function public.admin_project_count() to authenticated;

@@ -9,7 +9,8 @@ export const NOTIFICATION_FIELDS = `
   actor:profiles!notifications_actor_id_fkey(id, username, display_name, avatar_path),
   project:projects(id, title, icon, color),
   comment:project_comments(body),
-  friendship:friendships(id, status)
+  friendship:friendships(id, status),
+  feedback:feedback_reports(kind, title, guest_name)
 `
 
 export async function loadNotifications(userId) {
@@ -49,6 +50,16 @@ export function describeNotification(n) {
       }
     case 'friend_request':
       return { title: 'New friend request', text: `${name} sent you a friend request.`, link: '/friends' }
+    case 'feedback': {
+      // A bug report or change request for admins. Guests have no account, so use their name.
+      const from = n.actor?.display_name ?? (n.feedback?.guest_name ? `${n.feedback.guest_name} (guest)` : 'someone')
+      const what = n.feedback?.kind === 'change' ? 'change request' : 'bug report'
+      return {
+        title: n.feedback?.kind === 'change' ? 'New change request' : 'New bug report',
+        text: `New ${what} from ${from}: "${snippet(n.feedback?.title)}"`,
+        link: '/admin?tab=feedback',
+      }
+    }
     case 'friend_accepted':
       return { title: 'Friend request accepted', text: `You and ${name} are now friends.`, link: `/u/${n.actor?.username}` }
     default:

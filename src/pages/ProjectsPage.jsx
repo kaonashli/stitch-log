@@ -2,7 +2,7 @@
 // "Recently deleted" box at the bottom.
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Plus } from 'lucide-react'
+import { Lock, Plus } from 'lucide-react'
 import { supabase } from '../lib/supabase.js'
 import { getPhotoUrls } from '../lib/images.js'
 import { formatDate } from '../lib/dates.js'
@@ -30,7 +30,7 @@ export default function ProjectsPage() {
       // craft_type_id foreign key, project_photos(...) gets each project's photos.
       const { data, error } = await supabase
         .from('projects')
-        .select('id, title, status, start_date, finish_date, icon, color, craft_types(name), project_photos(storage_path, sort_order, is_cover)')
+        .select('id, title, status, start_date, finish_date, icon, color, is_private, craft_types(name), project_photos(storage_path, sort_order, is_cover)')
         .eq('user_id', user.id)
         .is('deleted_at', null) // deleted ones are in "Recently deleted" below
         .order('start_date', { ascending: false })
@@ -98,7 +98,10 @@ export default function ProjectsPage() {
             </div>
             <div className="project-card-body">
               <div className="row-between">
-                <strong>{project.title}</strong>
+                <strong className="row">
+                  {project.is_private && <Lock size={14} className="muted" aria-label="Private" />}
+                  {project.title}
+                </strong>
                 <StatusBadge status={project.status} />
               </div>
               <small className="muted">

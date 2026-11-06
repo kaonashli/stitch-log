@@ -21,6 +21,8 @@ import ShoppingList from '../components/ShoppingList.jsx'
 import Footer from '../components/Footer.jsx'
 import Spinner from '../components/Spinner.jsx'
 import ErrorMessage from '../components/ErrorMessage.jsx'
+import FeedSocial from '../components/FeedSocial.jsx'
+import { addHeart, removeHeart } from '../lib/social.js'
 
 // Is this the entry saved when the project was created? The database saves
 // the project and its first status at the same moment, so the times match.
@@ -34,6 +36,9 @@ export default function HomePage() {
   const [feed, setFeed] = useState([])
   const [photoUrls, setPhotoUrls] = useState({}) // project id -> first photo link
   const [myActive, setMyActive] = useState([])
+  // Hearts and comment counts for every project in the feed:
+  // { [projectId]: { hearts: [user ids], comments: number } }
+  const [social, setSocial] = useState({})
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
 
@@ -74,6 +79,20 @@ export default function HomePage() {
       setMyActive(activeResult.data ?? [])
       setLoading(false)
 
+      // Hearts + comment counts for all the feed's projects, in two queries
+      const projectIds = [...new Set(items.map((item) => item.projects.id))]
+      if (projectIds.length) {
+        const [likes, comments] = await Promise.all([
+          supabase.from('project_likes').select('project_id, user_id').in('project_id', projectIds),
+          supabase.from('project_comments').select('project_id').in('project_id', projectIds),
+        ])
+        const map = {}
+        for (const id of projectIds) map[id] = { hearts: [], comments: 0 }
+        for (const like of likes.data ?? []) map[like.project_id].hearts.push(like.user_id)
+        for (const comment of comments.data ?? []) map[comment.project_id].comments++
+        setSocial(map)
+      }
+
       // Photo links for the "new project" cards (photos are private, so we
       // ask for short-lived signed links; friends are allowed to see them)
       const firstPhotos = {}
@@ -91,6 +110,48 @@ export default function HomePage() {
     }
     load()
   }, [user.id])
+
+  // Heart / un-heart a project. Updates the screen right away, then saves
+  // (and puts it back if saving fails).
+  async function toggleHeart(projectId) {
+    const current = social[projectId] ?? { hearts: [], comments: 0 }
+    const hearted = current.hearts.includes(user.id)
+    const updated = {
+      ...current,
+      hearts: hearted ? current.hearts.filter((id) => id !== user.id) : [...current.hearts, user.id],
+    }
+    setSocial((all) => ({ ...all, [projectId]: updated }))
+    try {
+      if (hearted) await removeHeart(projectId, user.id)
+      else await addHeart(projectId)
+    } catch (err) {
+      setSocial((all) => ({ ...all, [projectId]: current }))
+      setError(err.message)
+    }
+  }
+
+  function changeCommentCount(projectId, delta) {
+    setSocial((all) => {
+      const current = all[projectId] ?? { hearts: [], comments: 0 }
+      return { ...all, [projectId]: { ...current, comments: Math.max(0, current.comments + delta) } }
+    })
+  }
+
+  // The heart + comment bar for a feed card
+  function socialBar(projectId) {
+    const s = social[projectId] ?? { hearts: [], comments: 0 }
+    return (
+      <FeedSocial
+        projectId={projectId}
+        me={profile}
+        hearted={s.hearts.includes(user.id)}
+        heartCount={s.hearts.length}
+        commentCount={s.comments}
+        onToggleHeart={() => toggleHeart(projectId)}
+        onCommentCountChange={(delta) => changeCommentCount(projectId, delta)}
+      />
+    )
+  }
 
   return (
     <>
@@ -145,23 +206,27 @@ export default function HomePage() {
                       </span>
                     </span>
                   </Link>
+                  {socialBar(project.id)}
                 </li>
               )
             }
 
             return (
-              <li key={item.id} className="card feed-item">
-                <Link to={`/u/${owner.username}`}><Avatar profile={owner} size={40} /></Link>
-                <div className="feed-text">
-                  <p>
-                    <Link to={`/u/${owner.username}`} className="strong-link">{owner.display_name}</Link>
-                    {' moved '}
-                    <Link to={`/projects/${item.projects.id}`} className="strong-link">{item.projects.title}</Link>
-                    {' to '}
-                    <StatusBadge status={item.status} />
-                  </p>
-                  <small className="muted">{timeAgo(item.changed_at)}</small>
+              <li key={item.id} className="card feed-item feed-item-stacked">
+                <div className="feed-new-head">
+                  <Link to={`/u/${owner.username}`}><Avatar profile={owner} size={40} /></Link>
+                  <div className="feed-text">
+                    <p>
+                      <Link to={`/u/${owner.username}`} className="strong-link">{owner.display_name}</Link>
+                      {' moved '}
+                      <Link to={`/projects/${item.projects.id}`} className="strong-link">{item.projects.title}</Link>
+                      {' to '}
+                      <StatusBadge status={item.status} />
+                    </p>
+                    <small className="muted">{timeAgo(item.changed_at)}</small>
+                  </div>
                 </div>
+                {socialBar(project.id)}
               </li>
             )
           })}

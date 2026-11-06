@@ -27,6 +27,7 @@ const EMPTY_FORM = {
   color: DEFAULT_COLOR,
   description: '',
   difficulty: null, // 1-5 or null (not rated)
+  is_private: false, // only the owner can see private projects
 }
 
 export default function ProjectFormPage() {
@@ -85,6 +86,7 @@ export default function ProjectFormPage() {
         color: project.color ?? DEFAULT_COLOR,
         description: project.description ?? '',
         difficulty: project.difficulty ?? null,
+        is_private: project.is_private ?? false,
       })
 
       // Private notes are in a separate, owner-only table
@@ -156,6 +158,7 @@ export default function ProjectFormPage() {
       color: form.color,
       description: form.description.trim() || null,
       difficulty: form.difficulty,
+      is_private: form.is_private,
     }
 
     try {
@@ -248,7 +251,27 @@ export default function ProjectFormPage() {
         <ErrorMessage message={error} />
 
         <section className="card stack">
-          <h2>Details</h2>
+          <div className="row-between">
+            <h2>Details</h2>
+            {/* Private: hidden from everyone else (friends and admins too) */}
+            <label className="private-toggle" title="Only you can see private projects">
+              <Lock size={15} />
+              <span>Private</span>
+              <input
+                type="checkbox"
+                role="switch"
+                className="switch"
+                checked={form.is_private}
+                onChange={(e) => setForm({ ...form, is_private: e.target.checked })}
+                aria-label="Private project"
+              />
+            </label>
+          </div>
+          {form.is_private && (
+            <small className="field-hint private-hint">
+              <Lock size={13} /> Only you can see this project. It still counts in the project numbers on your profile.
+            </small>
+          )}
           <label className="field">
             <span>Title <span className="required">*</span></span>
             <input name="title" required maxLength={120} value={form.title} onChange={handleChange} />
@@ -264,7 +287,11 @@ export default function ProjectFormPage() {
               onChange={handleChange}
               placeholder="What are you making? Any changes to the pattern?"
             />
-            <small className="field-hint"><Users size={13} /> Your friends can see this.</small>
+            <small className="field-hint">
+              {form.is_private
+                ? <><Lock size={13} /> Only you can see this (the project is private).</>
+                : <><Users size={13} /> Your friends can see this.</>}
+            </small>
           </label>
 
           <div className="field">

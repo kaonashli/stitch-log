@@ -176,6 +176,7 @@ It will be moved to Recently deleted (at the bottom of My projects) ` +
                   <StatusBadge status={project.status} />
                 )}
                 <span>{project.craft_types?.name}</span>
+                {project.is_private && <span className="badge badge-private"><Lock size={11} /> Private</span>}
               </div>
             </div>
           </div>

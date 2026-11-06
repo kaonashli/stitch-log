@@ -22,6 +22,7 @@ export default function ProfilePage() {
   const [profile, setProfile] = useState(isOwn ? me : null)
   const [loading, setLoading] = useState(!isOwn)
   const [isFriend, setIsFriend] = useState(false)
+  const [counts, setCounts] = useState(null) // { total, in_progress, finished }
 
   useEffect(() => {
     if (isOwn) {
@@ -41,6 +42,18 @@ export default function ProfilePage() {
       })
   }, [username, isOwn, me])
 
+  // Project counts for the header. These include private projects (just the
+  // numbers, nothing else), and are only shown to you and your friends.
+  const profileId = profile?.id
+  useEffect(() => {
+    setCounts(null)
+    if (!profileId || !(isOwn || isFriend)) return
+    supabase.rpc('profile_project_counts', { target: profileId }).then(({ data }) => {
+      const row = Array.isArray(data) ? data[0] : data
+      if (row) setCounts({ total: Number(row.total), in_progress: Number(row.in_progress), finished: Number(row.finished) })
+    })
+  }, [profileId, isOwn, isFriend])
+
   if (loading) return <Spinner />
   if (!profile) return <div className="card empty"><p>No one with the username @{username}.</p></div>
 
@@ -53,6 +66,13 @@ export default function ProfilePage() {
         <div className="profile-names">
           <h1>{profile.display_name}</h1>
           <span className="muted">@{profile.username} · Joined {memberSince}</span>
+          {counts && (
+            <span className="profile-counts">
+              <span><strong>{counts.total}</strong> project{counts.total === 1 ? '' : 's'}</span>
+              <span><strong>{counts.in_progress}</strong> in progress</span>
+              <span><strong>{counts.finished}</strong> finished</span>
+            </span>
+          )}
         </div>
         <div className="profile-actions">
           {isOwn

@@ -4,8 +4,10 @@
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <!-- viewport-fit=cover lets the app use the full screen on phones with a notch;
-         the CSS adds padding (safe-area-inset) so nothing hides behind it. -->
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+         the CSS adds padding (safe-area-inset) so nothing hides behind it.
+         maximum-scale=1 stops the browser zooming in by itself when you tap a box.
+         interactive-widget=resizes-content makes the app fit above the keyboard. -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1, viewport-fit=cover, interactive-widget=resizes-content" />
     <!-- Color of the phone's status bar / browser bar (updated when the theme changes) -->
     <meta name="theme-color" content="#ffffff" />
     <!-- "Add to Home Screen" support: opens full screen like a real app -->

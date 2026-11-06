@@ -6,11 +6,19 @@ All notable changes to Stitch Log are listed here, newest first.
 
 ### Added
 - Home feed: when a friend starts a new project, it appears as a card with the project's main image or first photo (or its icon and color if it has no photos), its status, and craft type.
+- Home feed: every friend activity card has a heart button and a comment button. Heart or un-heart right there, and open the project's comments inline to read, add, or delete your own.
 - Main image: star one of a project's photos to show it instead of the project's icon (My Projects, the project page, and friend activity).
 - Recently deleted: deleting a project moves it to "Recently deleted" at the bottom of My Projects for 30 days, showing the date it will be deleted for good. Restore it or delete it forever any time before then. Expired projects (and their photos) are removed automatically.
+- Private projects: a switch in the top-right corner of the project form. Private projects are visible only to their owner (not friends, not admins); they still count in number-only stats.
+- Profile header shows project counts (total, in progress, finished), including private projects, to you and your friends.
+- Admins get a notification for every new bug report or change request (including guest reports); tapping it opens the Feedback tab.
 
 ### Changed
 - Deleted projects are hidden from everyone else immediately, including friend activity, profiles, hearts, and comments.
+- Admin dashboard project count includes private projects.
+
+### Fixed
+- Phones no longer zoom in when tapping small dropdowns or text boxes (all inputs are 16px on touch screens), double-tap zoom is off, and the page itself no longer shifts while using the app.
 - My Projects shows a project's icon unless you've starred a main image (it used to show the first photo automatically).
 
 ## [0.1.0] - 2026-11-05

@@ -36,6 +36,12 @@ export default function Layout() {
     mainRef.current?.scrollTo(0, 0)
   }, [location.pathname])
 
+  // Lock the page itself so only <main> scrolls (see .app-locked in index.css)
+  useEffect(() => {
+    document.documentElement.classList.add('app-locked')
+    return () => document.documentElement.classList.remove('app-locked')
+  }, [])
+
   return (
     <div className="app-shell">
       <header className="topbar">

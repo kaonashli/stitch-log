@@ -23,6 +23,7 @@ export const RELEASES = [
         heading: 'Home',
         items: [
           'When a friend starts a new project, it shows up in your friend activity, with its photo if it has one.',
+          "Heart and comment on your friends' projects right from the friend activity, without opening the project.",
         ],
       },
       {
@@ -31,6 +32,14 @@ export const RELEASES = [
           "Pick one of your photos as a project's main image: tap the star on it, and it shows instead of the icon.",
           'Deleted a project by mistake? Deleted projects go to "Recently deleted" at the bottom of My projects for 30 days, so you can bring them back. Each one shows the date it will be gone for good.',
           "Deleted projects disappear from your friends' activity right away.",
+          "Make a project private with the switch at the top of the form. Only you can see it, but it still counts in the project numbers on your profile.",
+          "Your profile shows how many projects you have, how many are in progress, and how many are finished.",
+        ],
+      },
+      {
+        heading: 'On your phone',
+        items: [
+          "Steadier on phones: no more zooming in when you tap a box or save, and the screen stays put.",
         ],
       },
     ],

@@ -8,7 +8,7 @@
 // Hiding this page in the UI is just for convenience - the real protection is
 // the database RLS policies, which check has_permission() on every request.
 import { useEffect, useState } from 'react'
-import { Navigate } from 'react-router-dom'
+import { Navigate, useSearchParams } from 'react-router-dom'
 import { Activity, Inbox, Layers, Plus, Trash2, UserPlus, Users } from 'lucide-react'
 import { supabase } from '../lib/supabase.js'
 import { formatDate, timeAgo, toLocalDateString } from '../lib/dates.js'
@@ -44,7 +44,17 @@ function StatTile({ icon: Icon, label, value, hint }) {
 
 export default function AdminPage() {
   const { user, hasPermission, refreshProfile } = useAuth()
-  const [tab, setTab] = useState('dashboard')
+  // ?tab=feedback in the address opens that tab (used by feedback notifications)
+  const [searchParams] = useSearchParams()
+  const [tab, setTab] = useState(() => {
+    const wanted = searchParams.get('tab')
+    return TABS.some((t) => t.value === wanted) ? wanted : 'dashboard'
+  })
+  // ...and switch tabs if it changes while you're already here (e.g. tapping a notification)
+  useEffect(() => {
+    const wanted = searchParams.get('tab')
+    if (TABS.some((t) => t.value === wanted)) setTab(wanted)
+  }, [searchParams])
   const [users, setUsers] = useState([])
   const [roles, setRoles] = useState([])
   const [permissions, setPermissions] = useState([])
@@ -75,7 +85,8 @@ export default function AdminPage() {
       supabase.from('permissions').select('*').order('key'),
       supabase.from('user_roles').select('*'),
       supabase.from('role_permissions').select('*'),
-      supabase.from('projects').select('id', { count: 'exact', head: true }).is('deleted_at', null),
+      // counts private projects too (they're hidden from admins otherwise)
+      supabase.rpc('admin_project_count'),
       supabase.from('feedback_reports').select('id', { count: 'exact', head: true }).neq('status', 'done'),
       supabase.from('feedback_reports').select('id', { count: 'exact', head: true }).eq('status', 'new'),
     ])
@@ -86,7 +97,7 @@ export default function AdminPage() {
     setPermissions(perm.data ?? [])
     setUserRoles(ur.data ?? [])
     setRolePermissions(rp.data ?? [])
-    setStats({ projects: projectCount.count ?? 0, openReports: openCount.count ?? 0, newReports: newCount.count ?? 0 })
+    setStats({ projects: Number(projectCount.data ?? 0), openReports: openCount.count ?? 0, newReports: newCount.count ?? 0 })
     setLoading(false)
   }
 
